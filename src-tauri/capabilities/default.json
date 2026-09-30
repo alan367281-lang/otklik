@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Окно настроек: только стандартный набор, всё остальное — через свои команды",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

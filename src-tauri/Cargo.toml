@@ -1,0 +1,59 @@
+[package]
+name = "key-manager"
+version = "0.1.0"
+description = "Key Manager — горячие клавиши и заготовки текста"
+authors = []
+edition = "2021"
+rust-version = "1.82"
+
+[lib]
+name = "key_manager_lib"
+# Только rlib: программа живёт лишь на Windows-десктопе, мобильные
+# staticlib/cdylib из шаблона Tauri нам не нужны и удлиняют сборку.
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Живой форк serde_yaml (тот заброшен в 2024-м).
+serde_norway = "0.9"
+parking_lot = "0.12"
+chrono = "0.4"
+
+# Сырые привязки WinAPI. Именно windows-sys, а не windows: второй на этой
+# машине съедает память при компиляции, а обёртки над COM
+# нам не нужны — только хук, SendInput, буфер обмена и имя процесса.
+[dependencies.windows-sys]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_System_LibraryLoader",
+  "Win32_System_SystemInformation",
+]
+
+[profile.dev]
+debug = 1
+incremental = true
+
+[profile.dev.package."*"]
+debug = 0
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

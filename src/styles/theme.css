@@ -1,0 +1,43 @@
+/* Цвета только здесь; в остальных стилях — переменные. */
+:root {
+  --bg: #f6f6f8;
+  --surf: #ffffff;
+  --line: #e4e4ea;
+  --ink: #1b1b22;
+  --ink2: #5d5d6b;
+  --ink3: #8f8f9c;
+  --ac: #4f46e5;
+  --ac-soft: #eceafd;
+  --ok: #15803d;
+  --ok-soft: #e7f6ec;
+  --err: #b91c1c;
+  --err-soft: #fdecec;
+  --warn: #92400e;
+  --warn-soft: #fdf3e2;
+  --hover: rgba(0, 0, 0, 0.05);
+  --kbd: #f0f0f4;
+  --radius: 10px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131316;
+    --surf: #1c1c21;
+    --line: #2c2c34;
+    --ink: #ececf1;
+    --ink2: #a4a4b2;
+    --ink3: #70707e;
+    --ac: #8b85ff;
+    --ac-soft: #26244a;
+    --ok: #4ade80;
+    --ok-soft: #16301f;
+    --err: #f87171;
+    --err-soft: #3a1b1b;
+    --warn: #fbbf24;
+    --warn-soft: #362a12;
+    --hover: rgba(255, 255, 255, 0.06);
+    --kbd: #2a2a32;
+    color-scheme: dark;
+  }
+}
