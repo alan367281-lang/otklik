@@ -8,8 +8,10 @@ pub mod config;
 pub mod macros;
 pub mod rules;
 
+mod admin;
 mod commands;
 mod engine;
+mod espanso;
 mod executor;
 mod hook;
 mod search;
@@ -18,6 +20,16 @@ mod win;
 
 use std::sync::{mpsc, Arc};
 use tauri::{Manager, WindowEvent};
+
+/// Автозапуск хранит путь к программе. После переустановки или
+/// обновления путь мог измениться — перезаписываем его при каждом старте.
+fn sync_autostart(app: &tauri::AppHandle) {
+    use tauri_plugin_autostart::ManagerExt;
+    let al = app.autolaunch();
+    if al.is_enabled().unwrap_or(false) {
+        let _ = al.enable();
+    }
+}
 
 pub fn run() {
     tauri::Builder::default()
@@ -48,6 +60,10 @@ pub fn run() {
             search::search_list,
             search::search_run,
             search::search_hide,
+            admin::admin_status,
+            admin::admin_set_task,
+            admin::admin_restart,
+            espanso::import_espanso,
             commands::test_snippet,
             commands::get_autostart,
             commands::set_autostart,
@@ -73,6 +89,7 @@ pub fn run() {
             let shared = Arc::new(engine::Shared::new(path));
             app.manage(shared.clone());
             tray::build(app)?;
+            sync_autostart(app.handle());
             search::create(app)?;
 
             let handle = app.handle().clone();

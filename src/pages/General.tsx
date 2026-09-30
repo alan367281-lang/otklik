@@ -2,6 +2,8 @@ import { useEffect, useState, type JSX } from 'react'
 import { api, errText, type Status } from '../lib/api'
 import type { Config } from '../lib/config'
 import { HotkeyInput } from '../components/HotkeyInput'
+import { AdminCard } from '../components/AdminCard'
+import { EspansoImport } from '../components/EspansoImport'
 
 interface Props {
   config: Config
@@ -86,6 +88,10 @@ export function GeneralPage({ config, status, update }: Props): JSX.Element {
           </label>
         </div>
       </section>
+
+      <AdminCard />
+
+      <EspansoImport config={config} update={update} />
 
       <section className="card">
         <h2>Файл настроек</h2>

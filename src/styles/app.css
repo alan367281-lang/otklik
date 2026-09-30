@@ -191,3 +191,8 @@ select {
   font: 12px Consolas, monospace; color: var(--ac); background: var(--ac-soft);
   border-radius: 5px; padding: 1px 6px;
 }
+
+/* Импорт */
+.import-box { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: var(--kbd); font-size: 13px; }
+.import-box summary { color: var(--ink2); margin-top: 6px; }
+.skip-list { margin: 6px 0 0; padding-left: 18px; color: var(--ink2); max-height: 160px; overflow: auto; user-select: text; }

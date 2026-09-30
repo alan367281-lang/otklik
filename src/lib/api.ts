@@ -5,6 +5,19 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import type { Config, Snippet } from './config'
 
+export interface AdminStatus {
+  elevated: boolean
+  task: boolean
+  exe: string
+}
+
+export interface Imported {
+  snippets: Snippet[]
+  skipped: string[]
+  files: number
+  dir: string
+}
+
 export interface RuleView {
   name: string
   hotkey: string | null
@@ -118,6 +131,10 @@ export const api = {
     ]),
   searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),
   searchHide: (restore: boolean): Promise<void> => call('search_hide', { restore }),
+  adminStatus: (): Promise<AdminStatus> => call('admin_status', undefined, { elevated: false, task: false, exe: '' }),
+  adminSetTask: (enabled: boolean): Promise<void> => call('admin_set_task', { enabled }),
+  adminRestart: (): Promise<void> => call('admin_restart'),
+  importEspanso: (): Promise<Imported> => call('import_espanso', undefined, { snippets: [], skipped: [], files: 0, dir: '' }),
 
   /** Подписка на событие ядра. Возвращает функцию отписки. */
   on<T>(channel: string, fn: (payload: T) => void): () => void {
