@@ -17,6 +17,40 @@ export interface AppDef {
   paste_keys: string | null
 }
 
+/** Шаг цепочки: заполнено ровно одно из text, keys, open, wait. */
+export interface Step {
+  text?: string | null
+  keys?: string | null
+  open?: string | null
+  args?: string | null
+  wait?: number | null
+}
+
+export type StepKind = 'text' | 'keys' | 'open' | 'wait'
+
+export function stepKind(s: Step): StepKind {
+  if (s.wait !== undefined && s.wait !== null) return 'wait'
+  if (s.keys !== undefined && s.keys !== null) return 'keys'
+  if (s.open !== undefined && s.open !== null) return 'open'
+  return 'text'
+}
+
+export function newStep(kind: StepKind): Step {
+  if (kind === 'wait') return { wait: 500 }
+  if (kind === 'keys') return { keys: '' }
+  if (kind === 'open') return { open: '' }
+  return { text: '' }
+}
+
+export type ActionKind = 'text' | 'keys' | 'open' | 'steps'
+
+export function actionKind(s: Snippet): ActionKind {
+  if (s.steps !== null) return 'steps'
+  if (s.keys !== null) return 'keys'
+  if (s.open !== null) return 'open'
+  return 'text'
+}
+
 export interface Snippet {
   name: string
   enabled: boolean
@@ -26,6 +60,8 @@ export interface Snippet {
   text: string | null
   keys: string | null
   open: string | null
+  args: string | null
+  steps: Step[] | null
   method: Method
   only_in: OneOrMany
   except_in: OneOrMany
@@ -53,6 +89,8 @@ export function newSnippet(group: string | null): Snippet {
     text: '',
     keys: null,
     open: null,
+    args: null,
+    steps: null,
     method: 'auto',
     only_in: null,
     except_in: null,

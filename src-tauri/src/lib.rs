@@ -5,6 +5,7 @@
 
 pub mod chord;
 pub mod config;
+pub mod macros;
 pub mod rules;
 
 mod commands;
@@ -42,6 +43,7 @@ pub fn run() {
             commands::check_config,
             commands::list_apps,
             commands::check_chord,
+            commands::preview_text,
             commands::test_snippet,
             commands::get_autostart,
             commands::set_autostart,

@@ -157,17 +157,23 @@ pub struct Snippet {
     pub group: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hotkey: Option<String>,
-    /// Сокращение (этап 4).
+    /// Сокращение (появится на следующем этапе).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub abbr: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    /// Цепочка клавиш (этап 3).
+    /// Цепочка клавиш: `Иванов{Tab}{wait 200}{Enter}`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<String>,
-    /// Открыть программу, папку или ссылку (этап 3).
+    /// Открыть программу, папку, файл или ссылку.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub open: Option<String>,
+    /// Аргументы для `open`, если открываем программу.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<String>,
+    /// Цепочка шагов: открыть → подождать → нажать клавиши → вставить текст.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub steps: Option<Vec<Step>>,
     #[serde(skip_serializing_if = "Method::is_auto")]
     pub method: Method,
     /// Только в этих приложениях: имя из `apps` или сразу `Telegram.exe`.
@@ -189,9 +195,28 @@ impl Default for Snippet {
             text: None,
             keys: None,
             open: None,
+            args: None,
+            steps: None,
             method: Method::Auto,
             only_in: OneOrMany::None,
             except_in: OneOrMany::None,
         }
     }
+}
+
+/// Один шаг цепочки. Ровно одно из: text, keys, open, wait.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct Step {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keys: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub args: Option<String>,
+    /// Пауза в миллисекундах.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wait: Option<u64>,
 }

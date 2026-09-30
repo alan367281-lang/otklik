@@ -188,6 +188,29 @@ pub fn restore(owner: HWND, saved: &Saved) -> Result<(), String> {
     Ok(())
 }
 
+/// Текст из буфера обмена — для подстановки {clipboard}. Нет текста — пусто.
+pub fn get_text(owner: HWND) -> String {
+    let Ok(_open) = open(owner) else {
+        return String::new();
+    };
+    unsafe {
+        let h = GetClipboardData(CF_UNICODETEXT);
+        if h.is_null() {
+            return String::new();
+        }
+        let p = GlobalLock(h) as *const u16;
+        if p.is_null() {
+            return String::new();
+        }
+        let max = GlobalSize(h) / 2;
+        let slice = std::slice::from_raw_parts(p, max);
+        let len = slice.iter().position(|&c| c == 0).unwrap_or(max);
+        let text = String::from_utf16_lossy(&slice[..len]);
+        GlobalUnlock(h);
+        text
+    }
+}
+
 pub fn sequence() -> u32 {
     unsafe { GetClipboardSequenceNumber() }
 }

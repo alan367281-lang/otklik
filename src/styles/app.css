@@ -161,3 +161,25 @@ kbd { font: 12px Consolas, monospace; background: var(--kbd); border: 1px solid 
 .log .time { color: var(--ink3); font-family: Consolas, monospace; font-size: 12px; padding-top: 1px; }
 .log li.err { color: var(--err); }
 .log li.info { color: var(--ink2); }
+
+/* Редактор действий */
+select {
+  background: var(--surf); border: 1px solid var(--line); border-radius: 7px;
+  padding: 5px 8px; outline: none;
+}
+.token-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12.5px; }
+.token { padding: 2px 9px; border-radius: 999px; font-size: 12.5px; color: var(--ink2); }
+.token.mono { font-family: Consolas, monospace; font-size: 12px; }
+.mono-area { font-family: Consolas, monospace; font-size: 13px; line-height: 1.5; }
+.text-area.small { min-height: 60px; }
+.args-input { margin-top: 6px; font-size: 13px; }
+.preview-box { background: var(--kbd); border-radius: 8px; padding: 8px 11px; }
+.preview-text { white-space: pre-wrap; user-select: text; font-size: 13px; margin-top: 2px; }
+.steps { display: flex; flex-direction: column; gap: 8px; }
+.step { border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; background: var(--surf); }
+.step-head { display: flex; align-items: center; gap: 6px; }
+.step-head button { padding: 2px 9px; }
+.step-num {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--ac-soft); color: var(--ac); font-size: 12px; font-weight: 600;
+}

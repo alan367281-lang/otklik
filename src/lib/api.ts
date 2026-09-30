@@ -54,8 +54,8 @@ const demoConfig: Config = {
   settings: { pause_hotkey: 'Ctrl+Alt+Pause', search_hotkey: 'Ctrl+Alt+Space', paste_threshold: 100, restore_clipboard_ms: 300 },
   apps: { notepad: { exe: 'Notepad.exe', title_contains: null, paste_keys: null } },
   snippets: [
-    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, text: 'Это тестовый текст от Key Manager.', keys: null, open: null, method: 'auto', only_in: null, except_in: null },
-    { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: null, text: 'С уважением,\nИван', keys: null, open: null, method: 'auto', only_in: null, except_in: null },
+    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, text: 'Это тестовый текст от Key Manager.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
+    { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: null, text: 'С уважением,\nИван', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
   ],
 }
 
@@ -91,6 +91,8 @@ export const api = {
   listApps: (): Promise<RunningApp[]> =>
     call('list_apps', undefined, [{ exe: 'telegram.exe', title: 'Telegram' }, { exe: 'chrome.exe', title: 'Google Chrome' }]),
   /** null — сочетание можно занимать, иначе — почему нельзя. */
+  /** Что вставится прямо сейчас (‸ — место курсора). */
+  previewText: (text: string): Promise<string> => call('preview_text', { text }, text),
   checkChord: (chord: string): Promise<string | null> => call('check_chord', { chord }, null),
   testSnippet: (snippet: Snippet): Promise<void> => call('test_snippet', { snippet }),
   getAutostart: (): Promise<boolean> => call('get_autostart', undefined, false),

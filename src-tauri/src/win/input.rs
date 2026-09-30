@@ -101,6 +101,14 @@ pub fn send_chord(c: Chord) -> Result<(), String> {
     send(&v)
 }
 
+/// Нажать сочетание несколько раз подряд ({Tab 3}, возврат курсора).
+pub fn send_chord_times(c: Chord, times: u32) -> Result<(), String> {
+    for _ in 0..times {
+        send_chord(c)?;
+    }
+    Ok(())
+}
+
 /// Отпустить клавиши (для модификаторов, которые человек держит слишком долго).
 pub fn release(vks: &[u16]) -> Result<(), String> {
     let v: Vec<INPUT> = vks.iter().map(|vk| key(*vk, true)).collect();

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type JSX } from 'react'
 import { api, errText, type RuleView } from '../lib/api'
-import { list, newSnippet, type Config, type Method, type OneOrMany, type Snippet } from '../lib/config'
+import { actionKind, list, newSnippet, type Config, type Method, type OneOrMany, type Snippet } from '../lib/config'
+import { ActionEditor } from '../components/ActionEditor'
 import { AppPicker } from '../components/AppPicker'
 import { HotkeyInput } from '../components/HotkeyInput'
 import { Keys } from '../components/Keys'
@@ -193,7 +194,7 @@ function Editor({ index, snippet: s, view, config, groups, update, onSelect }: E
     }, 30)
   }
 
-  const legacyAction = s.text === null && (s.keys !== null || s.open !== null)
+  const kind = actionKind(s)
 
   return (
     <div className="editor-inner">
@@ -211,33 +212,25 @@ function Editor({ index, snippet: s, view, config, groups, update, onSelect }: E
         <HotkeyInput value={s.hotkey} onChange={(v) => set({ hotkey: v })} />
       </Field>
 
-      {legacyAction ? (
-        <div className="alert info">
-          Это действие ({s.keys !== null ? 'цепочка клавиш' : 'открытие программы'}) пока настраивается только в файле —
-          редактор для него появится на следующем этапе.
-        </div>
-      ) : (
-        <>
-          <Field label="Текст" hint={`${(s.text ?? '').length} симв.`}>
-            <textarea className="text-area" value={s.text ?? ''} onChange={(e) => set({ text: e.target.value })} rows={8} spellCheck={false} />
-          </Field>
-          <Field label="Как вставлять">
-            <Segmented<Method>
-              value={s.method}
-              onChange={(m) => set({ method: m })}
-              options={[
-                { value: 'auto', label: 'Сам решит' },
-                { value: 'paste', label: 'Через буфер' },
-                { value: 'type', label: 'Печатью' },
-              ]}
-            />
-            <div className="hint">
-              {s.method === 'auto' && `Короткий текст печатается, длинный (больше ${config.settings.paste_threshold} симв.) или с переносами — через буфер обмена.`}
-              {s.method === 'paste' && 'Быстро для любого объёма; буфер обмена потом возвращается как был.'}
-              {s.method === 'type' && 'Посимвольно — для мест, где вставка из буфера запрещена. Длинный текст печатается заметно дольше.'}
-            </div>
-          </Field>
-        </>
+      <ActionEditor snippet={s} set={set} />
+
+      {(kind === 'text' || (kind === 'steps' && (s.steps ?? []).some((st) => typeof st.text === 'string'))) && (
+        <Field label="Как вставлять текст">
+          <Segmented<Method>
+            value={s.method}
+            onChange={(m) => set({ method: m })}
+            options={[
+              { value: 'auto', label: 'Сам решит' },
+              { value: 'paste', label: 'Через буфер' },
+              { value: 'type', label: 'Печатью' },
+            ]}
+          />
+          <div className="hint">
+            {s.method === 'auto' && `Короткий текст печатается, длинный (больше ${config.settings.paste_threshold} симв.) или с переносами — через буфер обмена.`}
+            {s.method === 'paste' && 'Быстро для любого объёма; буфер обмена потом возвращается как был.'}
+            {s.method === 'type' && 'Посимвольно — для мест, где вставка из буфера запрещена. Длинный текст печатается заметно дольше.'}
+          </div>
+        </Field>
       )}
 
       <Field label="Где работает">
@@ -274,7 +267,7 @@ function Editor({ index, snippet: s, view, config, groups, update, onSelect }: E
       </Field>
 
       <div className="ed-actions">
-        <button onClick={test} disabled={legacyAction}>▶ Проверить</button>
+        <button onClick={test} title={kind === 'open' ? 'Откроет указанное — как по сочетанию' : undefined}>▶ Проверить</button>
         <span className="spacer" />
         <button onClick={() => move(-1)} disabled={index === 0} title="Выше: при одинаковом сочетании срабатывает верхняя">↑</button>
         <button onClick={() => move(1)} disabled={index === config.snippets.length - 1} title="Ниже">↓</button>

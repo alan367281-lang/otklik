@@ -138,6 +138,27 @@ pub fn list_apps() -> Vec<windows::RunningApp> {
     windows::running_apps()
 }
 
+/// Предпросмотр текста с подстановками: что вставится прямо сейчас.
+/// Место курсора отмечено символом ‸.
+#[tauri::command]
+pub fn preview_text(text: String) -> Result<String, String> {
+    let pieces = crate::macros::parse_text(&text)?;
+    let now = chrono::Local::now().naive_local();
+    let mut clip = || crate::win::clipboard::get_text(std::ptr::null_mut());
+    let (out, back) = crate::macros::expand_text(&pieces, now, &mut clip);
+    if back == 0 {
+        return Ok(out);
+    }
+    // Вставить ‸ за `back` шагов от конца (перенос строки — один шаг).
+    let chars: Vec<char> = out.replace("\r\n", "\n").chars().collect();
+    let at = chars.len().saturating_sub(back);
+    Ok(chars[..at]
+        .iter()
+        .chain(['‸'].iter())
+        .chain(chars[at..].iter())
+        .collect())
+}
+
 /// Проверить сочетание, записанное окном: те же правила, что для файла.
 /// None — можно занимать, иначе — почему нельзя.
 #[tauri::command]

@@ -4,6 +4,7 @@
 
 use crate::chord::Chord;
 use crate::config::{AppDef, Config, Method, OneOrMany, Snippet};
+use crate::macros::{self, KeyOp, TextPiece};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -48,7 +49,15 @@ impl AppMatch {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    Text(String),
+    Text(Vec<TextPiece>),
+    Keys(Vec<KeyOp>),
+    Open {
+        target: String,
+        args: Option<String>,
+    },
+    /// Пауза — только как шаг цепочки.
+    Wait(u64),
+    Steps(Vec<Action>),
 }
 
 #[derive(Debug)]
@@ -154,21 +163,78 @@ fn resolve_apps(
         .collect()
 }
 
-fn action_of(s: &Snippet) -> Result<Action, String> {
-    let actions = [s.text.is_some(), s.keys.is_some(), s.open.is_some()]
+fn one_action(
+    text: &Option<String>,
+    keys: &Option<String>,
+    open: &Option<String>,
+    args: &Option<String>,
+    extra: usize,
+) -> Result<Option<Action>, String> {
+    let count = [text.is_some(), keys.is_some(), open.is_some()]
         .iter()
         .filter(|x| **x)
-        .count();
-    if actions == 0 {
-        return Err("нет действия: укажите text".into());
+        .count()
+        + extra;
+    if count > 1 {
+        return Err("действие должно быть одно: text, keys, open или steps".into());
     }
-    if actions > 1 {
-        return Err("действие должно быть одно: text, keys или open".into());
+    if let Some(t) = text {
+        return Ok(Some(Action::Text(macros::parse_text(t)?)));
     }
-    match (&s.text, &s.keys, &s.open) {
-        (Some(t), _, _) => Ok(Action::Text(t.clone())),
-        (_, Some(_), _) => Err("цепочки клавиш (keys) появятся в следующей версии".into()),
-        _ => Err("открытие программ (open) появится в следующей версии".into()),
+    if let Some(k) = keys {
+        let ops = macros::parse_keys(k).map_err(|e| format!("клавиши: {e}"))?;
+        if ops.is_empty() {
+            return Err("цепочка клавиш пустая".into());
+        }
+        return Ok(Some(Action::Keys(ops)));
+    }
+    if let Some(o) = open {
+        if o.trim().is_empty() {
+            return Err("не указано, что открыть".into());
+        }
+        return Ok(Some(Action::Open {
+            target: o.trim().to_string(),
+            args: args.clone().filter(|a| !a.trim().is_empty()),
+        }));
+    }
+    Ok(None)
+}
+
+fn action_of(s: &Snippet) -> Result<Action, String> {
+    let has_steps = usize::from(s.steps.is_some());
+    if let Some(a) = one_action(&s.text, &s.keys, &s.open, &s.args, has_steps)? {
+        return Ok(a);
+    }
+    let Some(steps) = &s.steps else {
+        return Err("нет действия: укажите текст, клавиши, что открыть или цепочку".into());
+    };
+    if steps.is_empty() {
+        return Err("в цепочке нет шагов".into());
+    }
+    let mut out = Vec::with_capacity(steps.len());
+    for (i, st) in steps.iter().enumerate() {
+        let n = i + 1;
+        let wait = usize::from(st.wait.is_some());
+        let step = one_action(&st.text, &st.keys, &st.open, &st.args, wait)
+            .map_err(|e| format!("шаг {n}: {e}"))?;
+        match (step, st.wait) {
+            (Some(a), _) => out.push(a),
+            (None, Some(ms)) if ms <= 60_000 => out.push(Action::Wait(ms)),
+            (None, Some(_)) => return Err(format!("шаг {n}: пауза больше минуты")),
+            (None, None) => return Err(format!("шаг {n}: пустой")),
+        }
+    }
+    Ok(Action::Steps(out))
+}
+
+/// Короткое описание действия для списка в окне.
+fn describe(a: &Action) -> String {
+    match a {
+        Action::Text(_) => "текст".into(),
+        Action::Keys(ops) => format!("клавиши: {}", macros::describe_keys(ops)),
+        Action::Open { target, .. } => format!("открыть {target}"),
+        Action::Wait(ms) => format!("пауза {ms} мс"),
+        Action::Steps(v) => v.iter().map(describe).collect::<Vec<_>>().join(" → "),
     }
 }
 
@@ -247,13 +313,11 @@ pub fn compile(cfg: &Config) -> Compiled {
             name: name.clone(),
             hotkey: s.hotkey.clone(),
             scope: scope_text(&s.only_in, &s.except_in),
-            preview: s
-                .text
-                .as_deref()
-                .or(s.keys.as_deref())
-                .or(s.open.as_deref())
-                .map(preview)
-                .unwrap_or_default(),
+            preview: match (&s.text, action_of(s)) {
+                (Some(t), _) => preview(t),
+                (None, Ok(a)) => preview(&describe(&a)),
+                (None, Err(_)) => String::new(),
+            },
             active: false,
             problem: None,
         };
@@ -441,5 +505,54 @@ snippets:
         assert!(c.pick(&Chord::parse("Alt+1").unwrap(), &a).is_some());
         a.title = "youtube".into();
         assert!(c.pick(&Chord::parse("Alt+1").unwrap(), &a).is_none());
+    }
+
+    #[test]
+    fn macros_compile_and_explain() {
+        let c = compile(
+            &parse(
+                r#"
+snippets:
+  - { name: клавиши, hotkey: Alt+1, keys: "Иванов{Tab}{Enter}" }
+  - { name: открыть, hotkey: Alt+2, open: "https://ya.ru" }
+  - name: цепочка
+    hotkey: Alt+3
+    steps:
+      - open: notepad.exe
+      - wait: 500
+      - text: "Сегодня {date}"
+  - { name: опечатка, hotkey: Alt+4, keys: "{Tabb}" }
+  - { name: два действия, hotkey: Alt+5, text: a, open: b }
+  - name: плохой шаг
+    hotkey: Alt+6
+    steps: [ { wait: 100, text: x } ]
+"#,
+            )
+            .unwrap(),
+        );
+        let v: Vec<(&str, bool)> = c
+            .views
+            .iter()
+            .map(|v| (v.name.as_str(), v.active))
+            .collect();
+        assert_eq!(
+            v,
+            [
+                ("клавиши", true),
+                ("открыть", true),
+                ("цепочка", true),
+                ("опечатка", false),
+                ("два действия", false),
+                ("плохой шаг", false)
+            ]
+        );
+        assert!(c.views[3].problem.as_deref().unwrap().contains("Tabb"));
+        assert!(c.views[5].problem.as_deref().unwrap().starts_with("шаг 1"));
+        assert_eq!(
+            c.views[2].preview,
+            "открыть notepad.exe → пауза 500 мс → текст"
+        );
+        let r = name(&c, "Alt+3", &app("x.exe"));
+        assert_eq!(r.as_deref(), Some("цепочка"));
     }
 }
