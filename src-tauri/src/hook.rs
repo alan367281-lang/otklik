@@ -210,6 +210,11 @@ fn on_chord(ctx: &Ctx, chord: Chord) -> bool {
 
     let job = if compiled.pause == Some(chord) {
         Job::TogglePause
+    } else if compiled.search == Some(chord) {
+        if ctx.shared.paused.load(Ordering::Relaxed) {
+            return false;
+        }
+        Job::ShowSearch(foreground::active_app())
     } else {
         if ctx.shared.paused.load(Ordering::Relaxed) {
             trace(&chord, || "пауза".into());

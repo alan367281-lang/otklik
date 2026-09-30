@@ -185,6 +185,23 @@ try {
       Step 'сокращение внутри слова не срабатывает (57788 + пробел)' $null 0 1000 {
         if ($box.Text -ne '57788 ') { "в поле «$($box.Text)»" }
       } { [Kb]::Keys([UInt16[]]@(0x35, 0x37, 0x37, 0x38, 0x38, 0x20)) }
+      # Поиск: сочетание → набрать название → Enter. Фокус должен вернуться
+      # в окно теста, и заготовка выполнится здесь.
+      $searchKey = [regex]::Match($original, '(?m)^\s*search_hotkey:\s*(\S+)').Groups[1].Value
+      if ($searchKey -and $searchKey -ne 'Ctrl+Alt+Space') {
+        $results.Add("SKIP поиск — у вас он на $searchKey, тест умеет только Ctrl+Alt+Space")
+      } else {
+        Step 'поиск: Ctrl+Alt+Space → «__тест короткий» → Enter' $null 0 1800 {
+          if ($box.Text -ne 'Короткий тестовый текст.') { "в поле «$($box.Text)»" }
+        } {
+          [Kb]::Chord([UInt16[]]@(0xA2, 0xA4), 0x20) | Out-Null
+          Wait-Ui 900
+          if ([Kb]::ForegroundInfo() -ne 'key-manager.exe') { throw "окно поиска не получило фокус (в фокусе $([Kb]::ForegroundInfo()))" }
+          [Kb]::TypeUnicode('__тест короткий') | Out-Null
+          Wait-Ui 400
+          [Kb]::Chord([UInt16[]]@(), 0x0D) | Out-Null
+        }
+      }
       Step 'обычный набор не перехватывается' ([UInt16[]]@()) 0x51 400 {
         if ($box.Text -ne 'q' -and $box.Text -ne 'й') { "в поле «$($box.Text)»" }
       }

@@ -9,6 +9,8 @@ export interface RuleView {
   name: string
   hotkey: string | null
   abbr: string | null
+  group: string | null
+  detail: string
   scope: string
   preview: string
   active: boolean
@@ -46,6 +48,16 @@ export interface Check {
 export interface RunningApp {
   exe: string
   title: string
+}
+
+export interface SearchItem {
+  index: number
+  name: string
+  hotkey: string | null
+  abbr: string | null
+  group: string | null
+  preview: string
+  detail: string
 }
 
 const native = '__TAURI_INTERNALS__' in window
@@ -88,7 +100,7 @@ export const api = {
   saveConfig: (config: Config, stamp: number | null): Promise<number | null> =>
     call('save_config', { config, stamp }, stamp),
   checkConfig: (config: Config): Promise<Check> =>
-    call('check_config', { config }, { rules: config.snippets.map(() => ({ name: '', hotkey: null, abbr: null, scope: '', preview: '', active: true, problem: null })), warnings: [] }),
+    call('check_config', { config }, { rules: config.snippets.map(() => ({ name: '', hotkey: null, abbr: null, group: null, detail: '', scope: '', preview: '', active: true, problem: null })), warnings: [] }),
   listApps: (): Promise<RunningApp[]> =>
     call('list_apps', undefined, [{ exe: 'telegram.exe', title: 'Telegram' }, { exe: 'chrome.exe', title: 'Google Chrome' }]),
   /** null — сочетание можно занимать, иначе — почему нельзя. */
@@ -98,6 +110,14 @@ export const api = {
   testSnippet: (snippet: Snippet): Promise<void> => call('test_snippet', { snippet }),
   getAutostart: (): Promise<boolean> => call('get_autostart', undefined, false),
   setAutostart: (enabled: boolean): Promise<void> => call('set_autostart', { enabled }),
+
+  searchList: (): Promise<SearchItem[]> =>
+    call('search_list', undefined, [
+      { index: 0, name: 'Тест', hotkey: 'Alt+1', abbr: null, group: null, preview: 'Это тестовый текст', detail: 'Это тестовый текст от Key Manager.' },
+      { index: 1, name: 'Подпись', hotkey: null, abbr: ';подп', group: 'Почта', preview: 'С уважением, ⏎ Иван', detail: 'С уважением,\nИван' },
+    ]),
+  searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),
+  searchHide: (restore: boolean): Promise<void> => call('search_hide', { restore }),
 
   /** Подписка на событие ядра. Возвращает функцию отписки. */
   on<T>(channel: string, fn: (payload: T) => void): () => void {

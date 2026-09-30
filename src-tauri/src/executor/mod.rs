@@ -28,6 +28,10 @@ pub enum Job {
         suffix: Option<char>,
     },
     TogglePause,
+    /// Показать поиск; окно, откуда его вызвали.
+    ShowSearch(ActiveApp),
+    /// Вернуть фокус окну (после поиска).
+    Focus(usize),
 }
 
 pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
@@ -38,6 +42,10 @@ pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
             for job in rx {
                 match job {
                     Job::TogglePause => engine::toggle_pause(&app),
+                    Job::ShowSearch(target) => crate::search::show(&app, target),
+                    Job::Focus(hwnd) => {
+                        foreground::activate(hwnd);
+                    }
                     Job::Run {
                         rule,
                         compiled,

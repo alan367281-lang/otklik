@@ -12,6 +12,7 @@ mod commands;
 mod engine;
 mod executor;
 mod hook;
+mod search;
 mod tray;
 mod win;
 
@@ -44,6 +45,9 @@ pub fn run() {
             commands::list_apps,
             commands::check_chord,
             commands::preview_text,
+            search::search_list,
+            search::search_run,
+            search::search_hide,
             commands::test_snippet,
             commands::get_autostart,
             commands::set_autostart,
@@ -69,6 +73,7 @@ pub fn run() {
             let shared = Arc::new(engine::Shared::new(path));
             app.manage(shared.clone());
             tray::build(app)?;
+            search::create(app)?;
 
             let handle = app.handle().clone();
             engine::reload(&handle);

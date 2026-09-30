@@ -9,7 +9,7 @@ use windows_sys::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
+    GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, SetForegroundWindow,
 };
 
 /// pid → exe. Узнать имя процесса — это открыть процесс, а хук должен
@@ -45,6 +45,23 @@ pub fn exe_of(pid: u32) -> String {
     }
     c.insert(pid, exe.clone());
     exe
+}
+
+/// Сделать окно активным и дождаться этого (до 300 мс). Нужно после
+/// поиска: вернуть фокус туда, откуда его вызвали.
+pub fn activate(hwnd: usize) -> bool {
+    if hwnd == 0 {
+        return false;
+    }
+    let h = hwnd as windows_sys::Win32::Foundation::HWND;
+    unsafe { SetForegroundWindow(h) };
+    for _ in 0..30 {
+        if current_window() == hwnd {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    false
 }
 
 /// Активное окно сейчас — для сверки перед печатью.

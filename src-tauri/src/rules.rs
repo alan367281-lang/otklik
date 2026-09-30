@@ -76,6 +76,12 @@ impl Rule {
     fn allowed_in(&self, app: &ActiveApp) -> bool {
         !self.except_in.iter().any(|m| m.matches(app))
     }
+
+    /// Работает ли правило в этом приложении — для списка в поиске.
+    pub fn applies_to(&self, app: &ActiveApp) -> bool {
+        self.allowed_in(app)
+            && (self.only_in.is_empty() || self.only_in.iter().any(|m| m.matches(app)))
+    }
 }
 
 /// Строка для окна: что есть в файле и почему правило не работает, если так.
@@ -84,6 +90,9 @@ pub struct RuleView {
     pub name: String,
     pub hotkey: Option<String>,
     pub abbr: Option<String>,
+    pub group: Option<String>,
+    /// Текст подробнее, чем preview, — для просмотра в поиске.
+    pub detail: String,
     pub scope: String,
     pub preview: String,
     pub active: bool,
@@ -95,6 +104,11 @@ pub struct Compiled {
     pub by_chord: HashMap<Chord, Vec<Arc<Rule>>>,
     abbrs: Vec<Abbr>,
     pub pause: Option<Chord>,
+    /// Сочетание всплывающего поиска.
+    pub search: Option<Chord>,
+    /// Рабочее правило для каждой строки views (None — у строки проблема
+    /// или она выключена): по этому номеру поиск выполняет выбранное.
+    pub rules: Vec<Option<Arc<Rule>>>,
     pub paste_threshold: usize,
     pub restore_clipboard_ms: u64,
     paste_overrides: Vec<(AppMatch, Chord)>,
@@ -419,6 +433,23 @@ pub fn compile(cfg: &Config) -> Compiled {
         }
     };
 
+    let search = match Chord::parse(&cfg.settings.search_hotkey) {
+        Ok(c) if Some(c) == pause => {
+            warnings.push(format!(
+                "Поиск и пауза на одном сочетании {c} — поиск не будет работать"
+            ));
+            None
+        }
+        Ok(c) => Some(c),
+        Err(e) => {
+            warnings.push(format!(
+                "Сочетание поиска «{}»: {e}",
+                cfg.settings.search_hotkey
+            ));
+            None
+        }
+    };
+
     let mut paste_overrides = Vec::new();
     for (name, def) in &cfg.apps {
         if let Some(keys) = &def.paste_keys {
@@ -434,6 +465,7 @@ pub fn compile(cfg: &Config) -> Compiled {
     // Номер строки в views для каждого сокращения — для замечаний о конфликтах.
     let mut abbr_views: Vec<usize> = Vec::new();
     let mut views = Vec::new();
+    let mut rules: Vec<Option<Arc<Rule>>> = Vec::new();
 
     for (i, s) in cfg.snippets.iter().enumerate() {
         let name = if s.name.trim().is_empty() {
@@ -445,6 +477,12 @@ pub fn compile(cfg: &Config) -> Compiled {
             name: name.clone(),
             hotkey: s.hotkey.clone(),
             abbr: s.abbr.clone(),
+            group: s.group.clone(),
+            detail: match (&s.text, action_of(s)) {
+                (Some(t), _) => t.chars().take(600).collect(),
+                (None, Ok(a)) => describe(&a),
+                (None, Err(_)) => String::new(),
+            },
             scope: scope_text(&s.only_in, &s.except_in),
             preview: match (&s.text, action_of(s)) {
                 (Some(t), _) => preview(t),
@@ -472,6 +510,9 @@ pub fn compile(cfg: &Config) -> Compiled {
                     if Some(c) == pause {
                         return Err(format!("{c} уже занято паузой"));
                     }
+                    if Some(c) == search {
+                        return Err(format!("{c} уже занято поиском заготовок"));
+                    }
                     Some(c)
                 }
                 None => None,
@@ -497,6 +538,7 @@ pub fn compile(cfg: &Config) -> Compiled {
             Ok((chord, abbr, rule)) => {
                 let rule = Arc::new(rule);
                 view.active = true;
+                rules.push(Some(rule.clone()));
                 if let Some(chord) = chord {
                     view.hotkey = Some(chord.to_string());
                     let list = by_chord.entry(chord).or_default();
@@ -516,7 +558,10 @@ pub fn compile(cfg: &Config) -> Compiled {
                     abbrs.push(Abbr { chars, word, rule });
                 }
             }
-            Err(e) => view.problem = Some(e),
+            Err(e) => {
+                view.problem = Some(e);
+                rules.push(None);
+            }
         }
         views.push(view);
     }
@@ -562,6 +607,8 @@ pub fn compile(cfg: &Config) -> Compiled {
     Compiled {
         by_chord,
         abbrs,
+        search,
+        rules,
         pause,
         paste_threshold: cfg.settings.paste_threshold,
         restore_clipboard_ms: cfg.settings.restore_clipboard_ms,
@@ -806,5 +853,31 @@ snippets:
         assert!(c.views[1].problem.as_deref().unwrap().contains("не успеет"));
         assert!(c.views[2].problem.as_deref().unwrap().contains("уже есть"));
         assert!(c.by_chord.contains_key(&Chord::parse("Alt+1").unwrap()));
+    }
+    #[test]
+    fn search_hotkey_and_rule_index() {
+        let c = compile(
+            &parse(
+                r#"
+apps:
+  tg: { exe: Telegram.exe }
+settings: { search_hotkey: Ctrl+Alt+Space }
+snippets:
+  - { name: занято поиском, hotkey: Ctrl+Alt+Space, text: x }
+  - { name: только тг, abbr: ";т", only_in: tg, text: y }
+  - { name: везде, abbr: ";в", text: z, group: Почта }
+"#,
+            )
+            .unwrap(),
+        );
+        assert_eq!(c.search, Some(Chord::parse("Ctrl+Alt+Space").unwrap()));
+        assert!(c.rules[0].is_none());
+        assert!(c.views[0].problem.as_deref().unwrap().contains("поиском"));
+        let tg = c.rules[1].as_ref().unwrap();
+        assert!(tg.applies_to(&app("telegram.exe")));
+        assert!(!tg.applies_to(&app("chrome.exe")));
+        assert!(c.rules[2].as_ref().unwrap().applies_to(&app("chrome.exe")));
+        assert_eq!(c.views[2].group.as_deref(), Some("Почта"));
+        assert_eq!(c.views[2].detail, "z");
     }
 }

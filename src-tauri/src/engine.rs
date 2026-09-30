@@ -39,6 +39,8 @@ pub struct Shared {
     last_notice: Mutex<Option<Instant>>,
     /// Версия файла, которую записали мы сами, — наблюдатель её пропускает.
     written: Mutex<Option<u64>>,
+    /// Окно, из которого открыли поиск: туда вернём фокус и вставим.
+    pub search_target: Mutex<Option<crate::rules::ActiveApp>>,
 }
 
 impl Shared {
@@ -51,6 +53,7 @@ impl Shared {
             journal: Mutex::new(VecDeque::with_capacity(JOURNAL_SIZE)),
             last_notice: Mutex::new(None),
             written: Mutex::new(None),
+            search_target: Mutex::new(None),
         }
     }
 
