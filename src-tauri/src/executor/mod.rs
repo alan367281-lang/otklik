@@ -4,7 +4,7 @@
 mod text;
 
 use crate::engine;
-use crate::rules::{ActiveApp, Action, Compiled, Rule};
+use crate::rules::{Action, ActiveApp, Compiled, Rule};
 use crate::win::{clipboard, modifiers};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -28,12 +28,28 @@ pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
             for job in rx {
                 match job {
                     Job::TogglePause => engine::toggle_pause(&app),
-                    Job::Run { rule, compiled, app: target } => {
-                        let where_ = if target.exe.is_empty() { "?".into() } else { target.exe.clone() };
+                    Job::Run {
+                        rule,
+                        compiled,
+                        app: target,
+                    } => {
+                        let where_ = if target.exe.is_empty() {
+                            "?".into()
+                        } else {
+                            target.exe.clone()
+                        };
                         match run(owner, &rule, &compiled, &target) {
-                            Ok(how) => engine::log(&app, "ok", format!("«{}» → {where_} ({how})", rule.name)),
+                            Ok(how) => engine::log(
+                                &app,
+                                "ok",
+                                format!("«{}» → {where_} ({how})", rule.name),
+                            ),
                             Err(e) => {
-                                engine::log(&app, "err", format!("«{}» → {where_}: {e}", rule.name));
+                                engine::log(
+                                    &app,
+                                    "err",
+                                    format!("«{}» → {where_}: {e}", rule.name),
+                                );
                                 engine::notify(&app, &format!("«{}» не выполнено: {e}", rule.name));
                             }
                         }

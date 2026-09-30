@@ -1,11 +1,19 @@
 //! Команды для окна настроек.
 
+use crate::config::{self, Config, Snippet};
 use crate::engine::{self, LogEntry, Shared};
-use crate::rules::RuleView;
+use crate::executor::Job;
+use crate::rules::{compile, Rule, RuleView};
+use crate::win::{foreground, windows};
 use serde::Serialize;
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
+
+/// Канал к исполнителю — для кнопки «Проверить».
+pub struct JobTx(pub Sender<Job>);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,3 +83,93 @@ pub fn open_config_file(app: &AppHandle) {
     }
 }
 
+/// Настройки для редактора и «версия» файла, с которой окно начало работу.
+#[derive(Serialize)]
+pub struct ConfigDoc {
+    config: Option<Config>,
+    error: Option<String>,
+    stamp: Option<u64>,
+}
+
+#[tauri::command]
+pub fn get_config(state: State<'_, Arc<Shared>>) -> ConfigDoc {
+    let stamp = config::stamp(&state.config_path);
+    match config::load(&state.config_path) {
+        Ok(c) => ConfigDoc {
+            config: Some(c),
+            error: None,
+            stamp,
+        },
+        Err(e) => ConfigDoc {
+            config: None,
+            error: Some(e),
+            stamp,
+        },
+    }
+}
+
+#[tauri::command]
+pub fn save_config(
+    app: AppHandle,
+    config: Config,
+    stamp: Option<u64>,
+) -> Result<Option<u64>, String> {
+    engine::save_config(&app, &config, stamp)
+}
+
+/// Проверка черновика до сохранения: что с каждым правилом и общие замечания.
+#[derive(Serialize)]
+pub struct Check {
+    rules: Vec<RuleView>,
+    warnings: Vec<String>,
+}
+
+#[tauri::command]
+pub fn check_config(config: Config) -> Check {
+    let c = compile(&config);
+    Check {
+        rules: c.views,
+        warnings: c.warnings,
+    }
+}
+
+#[tauri::command]
+pub fn list_apps() -> Vec<windows::RunningApp> {
+    windows::running_apps()
+}
+
+/// Проверить сочетание, записанное окном: те же правила, что для файла.
+/// None — можно занимать, иначе — почему нельзя.
+#[tauri::command]
+pub fn check_chord(chord: String) -> Option<String> {
+    crate::chord::Chord::parse(&chord).err()
+}
+
+/// Выполнить заготовку прямо сейчас — в поле проверки окна, которое
+/// интерфейс заранее поставил в фокус.
+#[tauri::command]
+pub fn test_snippet(
+    snippet: Snippet,
+    state: State<'_, Arc<Shared>>,
+    tx: State<'_, JobTx>,
+) -> Result<(), String> {
+    let rule = Rule::adhoc(&snippet)?;
+    let compiled = state.rules.read().clone();
+    tx.0.send(Job::Run {
+        rule: Arc::new(rule),
+        compiled,
+        app: foreground::active_app(),
+    })
+    .map_err(|_| "исполнитель не отвечает".to_string())
+}
+
+#[tauri::command]
+pub fn get_autostart(app: AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let al = app.autolaunch();
+    if enabled { al.enable() } else { al.disable() }.map_err(|e| format!("автозапуск: {e}"))
+}

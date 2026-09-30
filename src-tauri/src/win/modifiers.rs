@@ -34,7 +34,10 @@ pub fn current() -> u8 {
 }
 
 fn held_keys() -> Vec<u16> {
-    MODS.iter().map(|(_, vk)| *vk).filter(|vk| is_down(*vk)).collect()
+    MODS.iter()
+        .map(|(_, vk)| *vk)
+        .filter(|vk| is_down(*vk))
+        .collect()
 }
 
 /// Дождаться, пока человек отпустит модификаторы сочетания. Иначе вместо

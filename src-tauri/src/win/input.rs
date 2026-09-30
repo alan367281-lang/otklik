@@ -63,12 +63,19 @@ fn send(inputs: &[INPUT]) -> Result<(), String> {
     if inputs.is_empty() {
         return Ok(());
     }
-    let sent = unsafe { SendInput(inputs.len() as u32, inputs.as_ptr(), size_of::<INPUT>() as i32) };
+    let sent = unsafe {
+        SendInput(
+            inputs.len() as u32,
+            inputs.as_ptr(),
+            size_of::<INPUT>() as i32,
+        )
+    };
     if sent as usize != inputs.len() {
         // Почти всегда это UIPI: активное окно запущено от администратора,
         // а мы — нет. Windows молча отбрасывает ввод.
         return Err(
-            "Windows не принял нажатия — скорее всего, окно запущено от имени администратора".into(),
+            "Windows не принял нажатия — скорее всего, окно запущено от имени администратора"
+                .into(),
         );
     }
     Ok(())

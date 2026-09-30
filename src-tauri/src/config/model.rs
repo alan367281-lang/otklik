@@ -1,6 +1,7 @@
 //! Модель файла настроек `config.yaml` ровно так, как её пишет человек.
 //! Всё необязательное имеет значения по умолчанию, чтобы короткий файл
-//! из двух строк тоже был правильным.
+//! из двух строк тоже был правильным. При записи из окна пустые и
+//! стандартные значения пропускаем — файл остаётся коротким и читаемым.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -11,6 +12,7 @@ pub struct Config {
     pub version: u32,
     pub settings: Settings,
     /// Короткие имена приложений для правил: `telegram: { exe: Telegram.exe }`.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub apps: BTreeMap<String, AppDef>,
     pub snippets: Vec<Snippet>,
 }
@@ -23,6 +25,31 @@ impl Default for Config {
             apps: BTreeMap::new(),
             snippets: Vec::new(),
         }
+    }
+}
+
+impl Config {
+    /// Привести к каноничному виду перед записью: список из одного
+    /// элемента — одним значением, пустой список — никак, пустые строки — никак.
+    pub fn normalize(&mut self) {
+        for app in self.apps.values_mut() {
+            app.exe.normalize();
+            blank_to_none(&mut app.title_contains);
+            blank_to_none(&mut app.paste_keys);
+        }
+        for s in &mut self.snippets {
+            s.only_in.normalize();
+            s.except_in.normalize();
+            blank_to_none(&mut s.group);
+            blank_to_none(&mut s.hotkey);
+            blank_to_none(&mut s.abbr);
+        }
+    }
+}
+
+fn blank_to_none(v: &mut Option<String>) {
+    if v.as_deref().is_some_and(|s| s.trim().is_empty()) {
+        *v = None;
     }
 }
 
@@ -66,15 +93,37 @@ impl OneOrMany {
             OneOrMany::Many(v) => v.clone(),
         }
     }
+
+    pub fn is_none(&self) -> bool {
+        self.to_vec().is_empty()
+    }
+
+    fn normalize(&mut self) {
+        let mut v: Vec<String> = self
+            .to_vec()
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        v.dedup();
+        *self = match v.len() {
+            0 => OneOrMany::None,
+            1 => OneOrMany::One(v.remove(0)),
+            _ => OneOrMany::Many(v),
+        };
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppDef {
+    #[serde(skip_serializing_if = "OneOrMany::is_none")]
     pub exe: OneOrMany,
     /// Дополнительно: подстрока в заголовке окна (без учёта регистра).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title_contains: Option<String>,
     /// Чем вставлять в этом приложении (терминалам нужен Ctrl+Shift+V).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub paste_keys: Option<String>,
 }
 
@@ -88,24 +137,44 @@ pub enum Method {
     Type,
 }
 
+impl Method {
+    fn is_auto(&self) -> bool {
+        *self == Method::Auto
+    }
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Snippet {
     pub name: String,
+    #[serde(skip_serializing_if = "is_true")]
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hotkey: Option<String>,
     /// Сокращение (этап 4).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub abbr: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     /// Цепочка клавиш (этап 3).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<String>,
     /// Открыть программу, папку или ссылку (этап 3).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub open: Option<String>,
+    #[serde(skip_serializing_if = "Method::is_auto")]
     pub method: Method,
     /// Только в этих приложениях: имя из `apps` или сразу `Telegram.exe`.
+    #[serde(skip_serializing_if = "OneOrMany::is_none")]
     pub only_in: OneOrMany,
     /// Везде, кроме этих приложений.
+    #[serde(skip_serializing_if = "OneOrMany::is_none")]
     pub except_in: OneOrMany,
 }
 

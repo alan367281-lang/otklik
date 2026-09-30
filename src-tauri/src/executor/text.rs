@@ -7,6 +7,8 @@ use std::thread::sleep;
 use std::time::Duration;
 use windows_sys::Win32::Foundation::HWND;
 
+const PRE_PASTE_MS: u64 = 100;
+
 pub fn use_paste(text: &str, method: Method, threshold: usize) -> bool {
     match method {
         Method::Paste => true,
@@ -30,6 +32,11 @@ pub fn insert(
 
     let saved = clipboard::save(owner)?;
     let seq = clipboard::set_text(owner, text)?;
+    // На изменение буфера тут же откликаются его журнал (Win+V) и менеджеры
+    // буфера — они на мгновение открывают его. Если Ctrl+V придёт в этот
+    // момент, программа не сможет открыть буфер и молча ничего не вставит.
+    // Espanso по той же причине ждёт 100 мс.
+    sleep(Duration::from_millis(PRE_PASTE_MS));
     let pasted = input::send_chord(compiled.paste_chord(target));
     // Приложение читает буфер не мгновенно — ждём, потом возвращаем старое.
     sleep(Duration::from_millis(compiled.restore_clipboard_ms));

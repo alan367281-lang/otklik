@@ -26,6 +26,10 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .invoke_handler(tauri::generate_handler![
             commands::get_status,
             commands::get_log,
@@ -33,6 +37,14 @@ pub fn run() {
             commands::reload_config,
             commands::open_config,
             commands::open_config_folder,
+            commands::get_config,
+            commands::save_config,
+            commands::check_config,
+            commands::list_apps,
+            commands::check_chord,
+            commands::test_snippet,
+            commands::get_autostart,
+            commands::set_autostart,
         ])
         .on_window_event(|window, event| {
             // Крестик прячет окно в трей: программа должна работать дальше.
@@ -59,6 +71,7 @@ pub fn run() {
             let handle = app.handle().clone();
             engine::reload(&handle);
             let (tx, rx) = mpsc::channel();
+            app.manage(commands::JobTx(tx.clone()));
             executor::spawn(handle.clone(), rx);
             hook::start(shared, tx);
             engine::watch(handle.clone());

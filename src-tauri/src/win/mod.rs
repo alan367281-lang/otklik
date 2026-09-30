@@ -5,6 +5,7 @@ pub mod clipboard;
 pub mod foreground;
 pub mod input;
 pub mod modifiers;
+pub mod windows;
 
 /// Строка → UTF-16 с нулём в конце, как ждут функции `…W`.
 pub fn wide(s: &str) -> Vec<u16> {

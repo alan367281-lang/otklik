@@ -4,8 +4,12 @@
 //! дольше LowLevelHooksTimeout (от 300 мс), Windows молча снимает хук, и
 //! программа «перестаёт работать» без единой ошибки. Поэтому здесь только
 //! сопоставление, а всё исполнение — в потоке исполнителя через канал.
+//!
+//! Проверено на деле: пока в фокусе окно самого Key Manager, Windows хук
+//! не вызывает вовсе. Поэтому сочетание для настроек записывает окно, а
+//! не хук, и сочетания не срабатывают внутри окна настроек.
 
-use crate::chord::{Chord, ALT, VK_CANCEL, VK_PAUSE, WIN};
+use crate::chord::{Chord, ALT, CTRL, VK_CANCEL, VK_PAUSE, WIN};
 use crate::engine::Shared;
 use crate::executor::Job;
 use crate::win::{foreground, input, modifiers};
@@ -104,6 +108,15 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
     CallNextHookEx(null_mut(), code, wparam, lparam)
 }
 
+/// Отладка в режиме разработки: что хук увидел и что решил. Пишем только
+/// сочетания с Ctrl, Alt или Win — обычный набор текста (в том числе
+/// заглавные буквы через Shift) сюда не попадает.
+fn trace(chord: &Chord, msg: impl FnOnce() -> String) {
+    if cfg!(debug_assertions) && chord.mods & (CTRL | ALT | WIN) != 0 {
+        eprintln!("[km] hook {chord}: {}", msg());
+    }
+}
+
 /// true — проглотить нажатие (приложение его не увидит).
 fn handle(msg: u32, kb: &KBDLLHOOKSTRUCT) -> bool {
     if kb.dwExtraInfo == input::TAG {
@@ -132,24 +145,36 @@ fn handle(msg: u32, kb: &KBDLLHOOKSTRUCT) -> bool {
             return false; // обычный набор текста — самый частый путь, выходим сразу
         }
         let Some(ctx) = CTX.get() else { return false };
+        let chord = Chord::new(mods, key);
         // try_read: если правила прямо сейчас подменяются, лучше пропустить
         // одно нажатие, чем заставить хук ждать.
         let Some(compiled) = ctx.shared.rules.try_read().map(|g| Arc::clone(&g)) else {
+            trace(&chord, || "правила подменяются, пропускаю".into());
             return false;
         };
-        let chord = Chord::new(mods, key);
 
         let job = if compiled.pause == Some(chord) {
             Job::TogglePause
         } else {
-            if ctx.shared.paused.load(Ordering::Relaxed) || !compiled.by_chord.contains_key(&chord) {
+            if ctx.shared.paused.load(Ordering::Relaxed) {
+                trace(&chord, || "пауза".into());
+                return false;
+            }
+            if !compiled.by_chord.contains_key(&chord) {
+                trace(&chord, || "нет правила".into());
                 return false;
             }
             let app = foreground::active_app();
             let Some(rule) = compiled.pick(&chord, &app) else {
+                trace(&chord, || format!("правило не для {}", app.exe));
                 return false; // сочетание не для этого приложения — пусть работает как обычно
             };
-            Job::Run { rule, compiled, app }
+            trace(&chord, || format!("«{}» в {}", rule.name, app.exe));
+            Job::Run {
+                rule,
+                compiled,
+                app,
+            }
         };
 
         if ctx.tx.send(job).is_err() {

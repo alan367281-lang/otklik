@@ -3,7 +3,7 @@
 //! по активному приложению. Без WinAPI: всё проверяется тестами.
 
 use crate::chord::Chord;
-use crate::config::{AppDef, Config, Method, OneOrMany};
+use crate::config::{AppDef, Config, Method, OneOrMany, Snippet};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -108,7 +108,11 @@ impl Compiled {
         let rules = self.by_chord.get(chord)?;
         rules
             .iter()
-            .find(|r| !r.only_in.is_empty() && r.only_in.iter().any(|m| m.matches(app)) && r.allowed_in(app))
+            .find(|r| {
+                !r.only_in.is_empty()
+                    && r.only_in.iter().any(|m| m.matches(app))
+                    && r.allowed_in(app)
+            })
             .or_else(|| {
                 rules
                     .iter()
@@ -150,6 +154,42 @@ fn resolve_apps(
         .collect()
 }
 
+fn action_of(s: &Snippet) -> Result<Action, String> {
+    let actions = [s.text.is_some(), s.keys.is_some(), s.open.is_some()]
+        .iter()
+        .filter(|x| **x)
+        .count();
+    if actions == 0 {
+        return Err("нет действия: укажите text".into());
+    }
+    if actions > 1 {
+        return Err("действие должно быть одно: text, keys или open".into());
+    }
+    match (&s.text, &s.keys, &s.open) {
+        (Some(t), _, _) => Ok(Action::Text(t.clone())),
+        (_, Some(_), _) => Err("цепочки клавиш (keys) появятся в следующей версии".into()),
+        _ => Err("открытие программ (open) появится в следующей версии".into()),
+    }
+}
+
+impl Rule {
+    /// Разовое правило для кнопки «Проверить»: без сочетания и без
+    /// ограничений по приложениям — только действие.
+    pub fn adhoc(s: &Snippet) -> Result<Rule, String> {
+        Ok(Rule {
+            name: if s.name.trim().is_empty() {
+                "Проверка".into()
+            } else {
+                s.name.clone()
+            },
+            action: action_of(s)?,
+            method: s.method,
+            only_in: vec![],
+            except_in: vec![],
+        })
+    }
+}
+
 fn scope_text(only: &OneOrMany, except: &OneOrMany) -> String {
     let only = only.to_vec();
     let except = except.to_vec();
@@ -176,7 +216,10 @@ pub fn compile(cfg: &Config) -> Compiled {
     let pause = match Chord::parse(&cfg.settings.pause_hotkey) {
         Ok(c) => Some(c),
         Err(e) => {
-            warnings.push(format!("Сочетание паузы «{}»: {e}", cfg.settings.pause_hotkey));
+            warnings.push(format!(
+                "Сочетание паузы «{}»: {e}",
+                cfg.settings.pause_hotkey
+            ));
             None
         }
     };
@@ -219,26 +262,15 @@ pub fn compile(cfg: &Config) -> Compiled {
             if !s.enabled {
                 return Err("выключено".into());
             }
-            let actions = [s.text.is_some(), s.keys.is_some(), s.open.is_some()]
-                .iter()
-                .filter(|x| **x)
-                .count();
-            if actions == 0 {
-                return Err("нет действия: укажите text".into());
-            }
-            if actions > 1 {
-                return Err("действие должно быть одно: text, keys или open".into());
-            }
-            let action = match (&s.text, &s.keys, &s.open) {
-                (Some(t), _, _) => Action::Text(t.clone()),
-                (_, Some(_), _) => return Err("цепочки клавиш (keys) появятся в следующей версии".into()),
-                _ => return Err("открытие программ (open) появится в следующей версии".into()),
-            };
+            let action = action_of(s)?;
             let only_in = resolve_apps(&s.only_in, &cfg.apps)?;
             let except_in = resolve_apps(&s.except_in, &cfg.apps)?;
             let Some(hk) = &s.hotkey else {
                 if s.abbr.is_some() {
-                    return Err("сокращения появятся в следующей версии — пока нужно сочетание (hotkey)".into());
+                    return Err(
+                        "сокращения появятся в следующей версии — пока нужно сочетание (hotkey)"
+                            .into(),
+                    );
                 }
                 return Err("не задано сочетание (hotkey)".into());
             };
@@ -308,7 +340,8 @@ mod tests {
     }
 
     fn name(c: &Compiled, hk: &str, a: &ActiveApp) -> Option<String> {
-        c.pick(&Chord::parse(hk).unwrap(), a).map(|r| r.name.clone())
+        c.pick(&Chord::parse(hk).unwrap(), a)
+            .map(|r| r.name.clone())
     }
 
     const CFG: &str = r#"
@@ -332,8 +365,14 @@ snippets:
     #[test]
     fn app_specific_rule_wins() {
         let c = compile(&parse(CFG).unwrap());
-        assert_eq!(name(&c, "Alt+1", &app("Telegram.exe")).as_deref(), Some("телеграм"));
-        assert_eq!(name(&c, "Alt+1", &app("chrome.exe")).as_deref(), Some("общий"));
+        assert_eq!(
+            name(&c, "Alt+1", &app("Telegram.exe")).as_deref(),
+            Some("телеграм")
+        );
+        assert_eq!(
+            name(&c, "Alt+1", &app("chrome.exe")).as_deref(),
+            Some("общий")
+        );
         assert!(c.views.iter().all(|v| v.active), "{:?}", c.views);
     }
 
@@ -341,7 +380,10 @@ snippets:
     fn excluded_app_gets_the_key_back() {
         let c = compile(&parse(CFG).unwrap());
         assert_eq!(name(&c, "Alt+2", &app("notepad.exe")), None);
-        assert_eq!(name(&c, "Alt+2", &app("word.exe")).as_deref(), Some("не в блокноте"));
+        assert_eq!(
+            name(&c, "Alt+2", &app("word.exe")).as_deref(),
+            Some("не в блокноте")
+        );
         assert_eq!(name(&c, "Alt+3", &app("word.exe")), None);
     }
 
@@ -369,7 +411,12 @@ snippets:
             )
             .unwrap(),
         );
-        let active: Vec<_> = c.views.iter().filter(|v| v.active).map(|v| v.name.as_str()).collect();
+        let active: Vec<_> = c
+            .views
+            .iter()
+            .filter(|v| v.active)
+            .map(|v| v.name.as_str())
+            .collect();
         assert_eq!(active, ["хорошее"]);
         assert!(c.views.iter().all(|v| v.active || v.problem.is_some()));
         assert_eq!(name(&c, "Alt+5", &app("x.exe")).as_deref(), Some("хорошее"));

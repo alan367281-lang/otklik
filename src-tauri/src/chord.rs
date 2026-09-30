@@ -142,11 +142,7 @@ impl Chord {
         for p in mod_parts {
             match modifier(p) {
                 Some(m) => mods |= m,
-                None => {
-                    return Err(format!(
-                        "«{p}» — не модификатор (Ctrl, Alt, Shift, Win)"
-                    ))
-                }
+                None => return Err(format!("«{p}» — не модификатор (Ctrl, Alt, Shift, Win)")),
             }
         }
         if modifier(key).is_some() {
@@ -173,7 +169,11 @@ impl Chord {
             (ALT, 0x09, "Alt+Tab занят системой"),
             (ALT, 0x73, "Alt+F4 закрывает окна"),
             (CTRL, 0x1B, "Ctrl+Esc открывает «Пуск»"),
-            (CTRL | SHIFT, 0x1B, "Ctrl+Shift+Esc открывает диспетчер задач"),
+            (
+                CTRL | SHIFT,
+                0x1B,
+                "Ctrl+Shift+Esc открывает диспетчер задач",
+            ),
         ];
         if let Some((_, _, why)) = RESERVED
             .iter()
@@ -228,7 +228,10 @@ mod tests {
 
     #[test]
     fn modifier_order_is_normalised() {
-        assert_eq!(Chord::parse("Alt+Ctrl+X").unwrap().to_string(), "Ctrl+Alt+X");
+        assert_eq!(
+            Chord::parse("Alt+Ctrl+X").unwrap().to_string(),
+            "Ctrl+Alt+X"
+        );
     }
 
     #[test]

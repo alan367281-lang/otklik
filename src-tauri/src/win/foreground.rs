@@ -19,7 +19,7 @@ fn cache() -> &'static Mutex<HashMap<u32, String>> {
     C.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn exe_of(pid: u32) -> String {
+pub fn exe_of(pid: u32) -> String {
     if let Some(e) = cache().lock().get(&pid) {
         return e.clone();
     }

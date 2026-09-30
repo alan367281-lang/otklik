@@ -1,0 +1,82 @@
+// Модель config.yaml на стороне окна. Поля — snake_case, как в файле:
+// так черновик уходит в ядро без переименований.
+
+export type OneOrMany = string | string[] | null
+export type Method = 'auto' | 'paste' | 'type'
+
+export interface Settings {
+  pause_hotkey: string
+  search_hotkey: string
+  paste_threshold: number
+  restore_clipboard_ms: number
+}
+
+export interface AppDef {
+  exe: OneOrMany
+  title_contains: string | null
+  paste_keys: string | null
+}
+
+export interface Snippet {
+  name: string
+  enabled: boolean
+  group: string | null
+  hotkey: string | null
+  abbr: string | null
+  text: string | null
+  keys: string | null
+  open: string | null
+  method: Method
+  only_in: OneOrMany
+  except_in: OneOrMany
+}
+
+export interface Config {
+  version: number
+  settings: Settings
+  apps: Record<string, AppDef>
+  snippets: Snippet[]
+}
+
+export function list(v: OneOrMany): string[] {
+  if (v === null || v === undefined) return []
+  return Array.isArray(v) ? v : [v]
+}
+
+export function newSnippet(group: string | null): Snippet {
+  return {
+    name: 'Новая заготовка',
+    enabled: true,
+    group,
+    hotkey: null,
+    abbr: null,
+    text: '',
+    keys: null,
+    open: null,
+    method: 'auto',
+    only_in: null,
+    except_in: null,
+  }
+}
+
+const BLANK: Snippet = { ...newSnippet(null), name: '', text: null }
+
+// Ядро не пишет в ответ поля со значениями по умолчанию (как и в файл) —
+// дополняем их, чтобы интерфейсу не проверять каждое поле на отсутствие.
+export function withDefaults(c: Config): Config {
+  return {
+    version: c.version ?? 1,
+    settings: c.settings,
+    apps: Object.fromEntries(
+      Object.entries(c.apps ?? {}).map(([k, a]) => [
+        k,
+        { exe: a.exe ?? null, title_contains: a.title_contains ?? null, paste_keys: a.paste_keys ?? null },
+      ]),
+    ),
+    snippets: (c.snippets ?? []).map((s) => ({ ...BLANK, ...s })),
+  }
+}
+
+export function sameConfig(a: Config | null, b: Config | null): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}

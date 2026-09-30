@@ -1,7 +1,7 @@
 //! Общее состояние программы и операции над ним: перечитать настройки,
 //! пауза, журнал. Хук, исполнитель, трей и окно ходят сюда.
 
-use crate::config;
+use crate::config::{self, Config};
 use crate::rules::{compile, Compiled};
 use parking_lot::{Mutex, RwLock};
 use serde::Serialize;
@@ -9,7 +9,7 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 
@@ -37,6 +37,8 @@ pub struct Shared {
     pub status: Mutex<LoadStatus>,
     journal: Mutex<VecDeque<LogEntry>>,
     last_notice: Mutex<Option<Instant>>,
+    /// Версия файла, которую записали мы сами, — наблюдатель её пропускает.
+    written: Mutex<Option<u64>>,
 }
 
 impl Shared {
@@ -48,6 +50,7 @@ impl Shared {
             status: Mutex::new(LoadStatus::default()),
             journal: Mutex::new(VecDeque::with_capacity(JOURNAL_SIZE)),
             last_notice: Mutex::new(None),
+            written: Mutex::new(None),
         }
     }
 
@@ -114,7 +117,11 @@ pub fn reload(app: &AppHandle) {
         Ok(cfg) => {
             let compiled = compile(&cfg);
             let active = compiled.active_count();
-            let problems = compiled.views.iter().filter(|v| v.problem.is_some()).count();
+            let problems = compiled
+                .views
+                .iter()
+                .filter(|v| v.problem.is_some())
+                .count();
             *s.rules.write() = Arc::new(compiled);
             *s.status.lock() = LoadStatus {
                 loaded_at: Some(now()),
@@ -141,7 +148,11 @@ pub fn set_paused(app: &AppHandle, paused: bool) {
     log(
         app,
         "info",
-        if paused { "Пауза: сочетания не перехватываются" } else { "Снова работаю" },
+        if paused {
+            "Пауза: сочетания не перехватываются"
+        } else {
+            "Снова работаю"
+        },
     );
     emit_status(app);
 }
@@ -151,6 +162,27 @@ pub fn toggle_pause(app: &AppHandle) {
     set_paused(app, !now_paused);
 }
 
+/// Сохранить настройки из окна. `expected` — версия файла, которую окно
+/// видело при загрузке: если файл с тех пор правили руками, не затираем.
+pub fn save_config(
+    app: &AppHandle,
+    cfg: &Config,
+    expected: Option<u64>,
+) -> Result<Option<u64>, String> {
+    let s = shared(app);
+    let current = config::stamp(&s.config_path);
+    if expected.is_some() && current != expected {
+        return Err("Файл настроек изменили снаружи, пока было открыто окно.                     Обновите окно, чтобы не потерять эти правки."
+            .into());
+    }
+    config::save(&s.config_path, cfg)?;
+    let stamp = config::stamp(&s.config_path);
+    *s.written.lock() = stamp;
+    log(app, "info", "Настройки сохранены из окна");
+    reload(app);
+    Ok(stamp)
+}
+
 /// Следить за файлом: раз в секунду сверять время изменения. Своя
 /// зависимость (notify) ради этого не нужна, а редакторы, которые
 /// сохраняют через «записать рядом и переименовать», так тоже ловятся.
@@ -158,16 +190,16 @@ pub fn watch(app: AppHandle) {
     std::thread::Builder::new()
         .name("km-watch".into())
         .spawn(move || {
-            let path = shared(&app).config_path.clone();
-            let stamp = |p: &PathBuf| -> Option<SystemTime> {
-                std::fs::metadata(p).and_then(|m| m.modified()).ok()
-            };
-            let mut last = stamp(&path);
+            let s = shared(&app);
+            let mut last = config::stamp(&s.config_path);
             loop {
                 std::thread::sleep(Duration::from_secs(1));
-                let cur = stamp(&path);
+                let cur = config::stamp(&s.config_path);
                 if cur != last && cur.is_some() {
                     last = cur;
+                    if *s.written.lock() == cur {
+                        continue; // это мы сами сохранили из окна — уже перечитано
+                    }
                     // Редактор мог ещё не дописать файл — даём ему мгновение.
                     std::thread::sleep(Duration::from_millis(150));
                     reload(&app);

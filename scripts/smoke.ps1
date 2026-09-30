@@ -19,6 +19,12 @@ public static class Kb {
   [DllImport("user32.dll")] static extern uint SendInput(uint n, IN[] i, int size);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  public static string ForegroundInfo() {
+    IntPtr h = GetForegroundWindow(); uint pid; GetWindowThreadProcessId(h, out pid);
+    string name = "?"; try { name = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch {}
+    return name + ".exe";
+  }
   static IN K(ushort vk, bool up) { var x = new IN(); x.type = 1; x.ki.vk = vk; x.ki.flags = up ? 2u : 0u; return x; }
   public static uint Chord(ushort[] mods, ushort key) {
     var l = new List<IN>();
@@ -34,6 +40,7 @@ $expected1 = 'Это тестовый текст от Key Manager.'
 $oldClip = 'СТАРЫЙ БУФЕР ' + (Get-Random)
 $results = New-Object System.Collections.Generic.List[string]
 $failed = $false
+$unsure = $false
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Key Manager — автотест'
@@ -59,35 +66,36 @@ function Ensure-Focus {
   return $false
 }
 
+# Одна проверка: фокус у окна теста до и после. Если фокус ушёл (человек
+# переключил окно), результат недостоверен — так и пишем, а не «сбой».
+function Step([string]$name, [scriptblock]$send, [int]$waitMs, [scriptblock]$verify) {
+  $box.Clear()
+  if (-not (Ensure-Focus)) { $script:unsure = $true; $results.Add("SKIP $name — окно теста не получило фокус, клавиши не посылал"); return }
+  & $send
+  Wait-Ui $waitMs
+  if ([Kb]::GetForegroundWindow() -ne $form.Handle) { $script:unsure = $true; $results.Add("SKIP $name — фокус ушёл к $([Kb]::ForegroundInfo()), результат недостоверен"); return }
+  $err = & $verify
+  if ($err) { $script:failed = $true; $results.Add("FAIL $name — $err") } else { $results.Add("OK   $name") }
+}
+
 $form.Add_Shown({
   try {
     [System.Windows.Forms.Clipboard]::SetText($oldClip)
-    if (-not (Ensure-Focus)) { throw 'окно теста не получило фокус — клавиши не посылаю' }
 
-    # 1. Alt+1 → короткий текст печатью
-    [Kb]::Chord(@(0xA4), 0x31) | Out-Null
-    Wait-Ui 1500
-    if ($box.Text -eq $expected1) { $results.Add('OK   Alt+1 вставил тестовый текст') }
-    else { $script:failed = $true; $results.Add("FAIL Alt+1: в поле «$($box.Text)»") }
-
-    # 2. Ctrl+Alt+2 → многострочный текст через буфер + буфер вернулся
-    $box.Clear()
-    if (-not (Ensure-Focus)) { throw 'окно теста потеряло фокус' }
-    [Kb]::Chord(@(0xA2, 0xA4), 0x32) | Out-Null
-    Wait-Ui 2000
-    $t = $box.Text
-    if ($t.StartsWith('Первая строка') -and $t.Contains("`r`nВторая строка")) { $results.Add('OK   Ctrl+Alt+2 вставил многострочный текст') }
-    else { $script:failed = $true; $results.Add("FAIL Ctrl+Alt+2: в поле «$t»") }
-    $clip = [System.Windows.Forms.Clipboard]::GetText()
-    if ($clip -eq $oldClip) { $results.Add('OK   буфер обмена вернулся') }
-    else { $script:failed = $true; $results.Add("FAIL буфер обмена: «$clip»") }
-
-    # 3. Обычная клавиша без модификаторов проходит насквозь
-    $box.Clear()
-    [Kb]::Chord(@(), 0x51) | Out-Null   # Q
-    Wait-Ui 400
-    if ($box.Text -eq 'q' -or $box.Text -eq 'й') { $results.Add('OK   обычный набор не перехватывается') }
-    else { $script:failed = $true; $results.Add("FAIL обычная клавиша: «$($box.Text)»") }
+    Step 'Alt+1 вставил тестовый текст' { [Kb]::Chord(@(0xA4), 0x31) | Out-Null } 1500 {
+      if ($box.Text -ne $expected1) { "в поле «$($box.Text)»" }
+    }
+    Step 'Ctrl+Alt+2 вставил многострочный текст и вернул буфер' { [Kb]::Chord(@(0xA2, 0xA4), 0x32) | Out-Null } 2000 {
+      $t = $box.Text
+      if (-not ($t.StartsWith('Первая строка') -and $t.Contains("`r`nВторая строка"))) { "в поле «$t»" }
+      else {
+        $clip = [System.Windows.Forms.Clipboard]::GetText()
+        if ($clip -ne $oldClip) { "буфер обмена не вернулся: «$clip»" }
+      }
+    }
+    Step 'обычный набор не перехватывается' { [Kb]::Chord(@(), 0x51) | Out-Null } 400 {
+      if ($box.Text -ne 'q' -and $box.Text -ne 'й') { "в поле «$($box.Text)»" }
+    }
   } catch {
     $script:failed = $true; $results.Add("FAIL $_")
   } finally {
@@ -97,4 +105,6 @@ $form.Add_Shown({
 
 [System.Windows.Forms.Application]::Run($form)
 $results | ForEach-Object { Write-Output $_ }
-if ($failed) { exit 1 } else { Write-Output 'Все проверки пройдены'; exit 0 }
+if ($failed) { exit 1 }
+if ($unsure) { Write-Output 'Часть проверок пропущена: во время теста не трогайте клавиатуру и мышь'; exit 2 }
+Write-Output 'Все проверки пройдены'; exit 0

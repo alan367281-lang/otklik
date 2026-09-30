@@ -57,14 +57,22 @@ pub fn build(app: &App) -> tauri::Result<()> {
 
 pub fn show_paused(app: &AppHandle, paused: bool) {
     if let Some(ui) = app.try_state::<TrayUi>() {
-        let _ = ui.pause.set_text(if paused { "Продолжить" } else { "Пауза" });
+        let _ = ui.pause.set_text(if paused {
+            "Продолжить"
+        } else {
+            "Пауза"
+        });
     }
     if let Some(tray) = app.tray_by_id("main") {
         let bytes = if paused { ICON_PAUSED } else { ICON };
         if let Ok(img) = Image::from_bytes(bytes) {
             let _ = tray.set_icon(Some(img));
         }
-        let _ = tray.set_tooltip(Some(if paused { "Key Manager — пауза" } else { "Key Manager" }));
+        let _ = tray.set_tooltip(Some(if paused {
+            "Key Manager — пауза"
+        } else {
+            "Key Manager"
+        }));
     }
 }
 
@@ -77,5 +85,7 @@ pub fn show_main(app: &AppHandle) {
 }
 
 pub fn is_paused(app: &AppHandle) -> bool {
-    app.state::<Arc<engine::Shared>>().paused.load(Ordering::SeqCst)
+    app.state::<Arc<engine::Shared>>()
+        .paused
+        .load(Ordering::SeqCst)
 }
