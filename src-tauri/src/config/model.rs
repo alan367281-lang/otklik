@@ -143,6 +143,24 @@ impl Method {
     }
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum AbbrMode {
+    /// Начинается со знака (`;адр`, `//п`) — сразу, иначе — после пробела.
+    #[default]
+    Auto,
+    /// Сразу, как только набрано.
+    Instant,
+    /// После пробела, Enter или знака препинания — и только целым словом.
+    Word,
+}
+
+impl AbbrMode {
+    fn is_auto(&self) -> bool {
+        *self == AbbrMode::Auto
+    }
+}
+
 fn is_true(b: &bool) -> bool {
     *b
 }
@@ -157,9 +175,12 @@ pub struct Snippet {
     pub group: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hotkey: Option<String>,
-    /// Сокращение (появится на следующем этапе).
+    /// Сокращение: набрал `;адр` — заменилось на текст заготовки.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub abbr: Option<String>,
+    /// Когда срабатывает сокращение.
+    #[serde(skip_serializing_if = "AbbrMode::is_auto")]
+    pub abbr_mode: AbbrMode,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     /// Цепочка клавиш: `Иванов{Tab}{wait 200}{Enter}`.
@@ -192,6 +213,7 @@ impl Default for Snippet {
             group: None,
             hotkey: None,
             abbr: None,
+            abbr_mode: AbbrMode::Auto,
             text: None,
             keys: None,
             open: None,

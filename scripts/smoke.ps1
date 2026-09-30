@@ -34,6 +34,19 @@ public static class Kb {
     for (int i = mods.Length - 1; i >= 0; i--) l.Add(K(mods[i], true));
     return SendInput((uint)l.Count, l.ToArray(), Marshal.SizeOf(typeof(IN)));
   }
+  // Напечатать строку юникодом (так шлют текст голосовой ввод и другие
+  // программы): у таких нажатий нет кода клавиши, символ — в скан-коде.
+  public static uint TypeUnicode(string s) {
+    var l = new List<IN>();
+    foreach (char c in s) {
+      var d = new IN(); d.type = 1; d.ki.scan = c; d.ki.flags = 4u; l.Add(d);
+      var u = new IN(); u.type = 1; u.ki.scan = c; u.ki.flags = 6u; l.Add(u);
+    }
+    return SendInput((uint)l.Count, l.ToArray(), Marshal.SizeOf(typeof(IN)));
+  }
+  public static void Keys(ushort[] vks) {
+    foreach (var vk in vks) Chord(new ushort[0], vk);
+  }
   public static string ForegroundInfo() {
     IntPtr h = GetForegroundWindow(); uint pid; GetWindowThreadProcessId(h, out pid);
     string name = "?"; try { name = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch {}
@@ -65,6 +78,14 @@ $testRules = @'
   - name: __тест клавиш
     hotkey: Ctrl+Alt+Shift+F10
     keys: "ab{Left}X{End}{Enter}{Tab 2}z"
+
+  - name: __тест сокращения сразу
+    abbr: ";кмт"
+    text: "СРАЗУ"
+
+  - name: __тест сокращения словом
+    abbr: "7788"
+    text: "СЛОВО"
 
   - name: __тест цепочки
     hotkey: Ctrl+Alt+Shift+F11
@@ -112,10 +133,14 @@ try {
     }
     return $false
   }
-  function Step([string]$name, [UInt16[]]$mods, [UInt16]$key, [int]$waitMs, [scriptblock]$verify) {
+  # $send — либо сочетание (mods + key), либо свой блок отправки клавиш.
+  function Step([string]$name, [UInt16[]]$mods, [UInt16]$key, [int]$waitMs, [scriptblock]$verify, [scriptblock]$send = $null) {
+    # Фокус однажды уже уходил — человек работает за компьютером. Дальше
+    # клавиши не шлём вовсе: следующее сочетание могло бы напечатать в его окно.
+    if ($script:unsure) { $results.Add("SKIP $name — тест остановлен"); return }
     $box.Clear()
     if (-not (Ensure-Focus)) { $script:unsure = $true; $results.Add("SKIP $name — окно теста не получило фокус, клавиши не посылал"); return }
-    [Kb]::Chord($mods, $key) | Out-Null
+    if ($send) { & $send } else { [Kb]::Chord($mods, $key) | Out-Null }
     Wait-Ui $waitMs
     if ([Kb]::GetForegroundWindow() -ne $form.Handle) { $script:unsure = $true; $results.Add("SKIP $name — фокус ушёл к $([Kb]::ForegroundInfo())"); return }
     $err = & $verify
@@ -151,6 +176,15 @@ try {
       Step 'цепочка: текст → пауза → клавиши' $CAS 0x7A 1800 {
         if ($box.Text -ne "один`r`nдва") { "в поле «$(Show $box.Text)»" }
       }
+      Step 'сокращение «сразу» (;кмт, юникодом)' $null 0 1500 {
+        if ($box.Text -ne 'СРАЗУ') { "в поле «$($box.Text)»" }
+      } { [Kb]::TypeUnicode(';кмт') | Out-Null }
+      Step 'сокращение «после пробела» (7788 + пробел, клавишами)' $null 0 1500 {
+        if ($box.Text -ne 'СЛОВО ') { "в поле «$($box.Text)»" }
+      } { [Kb]::Keys([UInt16[]]@(0x37, 0x37, 0x38, 0x38, 0x20)) }
+      Step 'сокращение внутри слова не срабатывает (57788 + пробел)' $null 0 1000 {
+        if ($box.Text -ne '57788 ') { "в поле «$($box.Text)»" }
+      } { [Kb]::Keys([UInt16[]]@(0x35, 0x37, 0x37, 0x38, 0x38, 0x20)) }
       Step 'обычный набор не перехватывается' ([UInt16[]]@()) 0x51 400 {
         if ($box.Text -ne 'q' -and $box.Text -ne 'й') { "в поле «$($box.Text)»" }
       }

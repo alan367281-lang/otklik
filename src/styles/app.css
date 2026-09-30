@@ -183,3 +183,11 @@ select {
   width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   background: var(--ac-soft); color: var(--ac); font-size: 12px; font-weight: 600;
 }
+
+/* Сокращения */
+.triggers { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.abbr-input { font-family: Consolas, monospace; max-width: 220px; }
+.abbr-tag {
+  font: 12px Consolas, monospace; color: var(--ac); background: var(--ac-soft);
+  border-radius: 5px; padding: 1px 6px;
+}

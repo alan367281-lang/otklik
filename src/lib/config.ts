@@ -3,6 +3,7 @@
 
 export type OneOrMany = string | string[] | null
 export type Method = 'auto' | 'paste' | 'type'
+export type AbbrMode = 'auto' | 'instant' | 'word'
 
 export interface Settings {
   pause_hotkey: string
@@ -57,6 +58,7 @@ export interface Snippet {
   group: string | null
   hotkey: string | null
   abbr: string | null
+  abbr_mode: AbbrMode
   text: string | null
   keys: string | null
   open: string | null
@@ -86,6 +88,7 @@ export function newSnippet(group: string | null): Snippet {
     group,
     hotkey: null,
     abbr: null,
+    abbr_mode: 'auto',
     text: '',
     keys: null,
     open: null,

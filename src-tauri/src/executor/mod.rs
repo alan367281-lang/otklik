@@ -8,7 +8,7 @@ use crate::config::Method;
 use crate::engine;
 use crate::macros::{self, KeyOp};
 use crate::rules::{Action, ActiveApp, Compiled, Rule};
-use crate::win::{clipboard, input, modifiers, shell};
+use crate::win::{clipboard, foreground, input, modifiers, shell};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -21,6 +21,11 @@ pub enum Job {
         rule: Arc<Rule>,
         compiled: Arc<Compiled>,
         app: ActiveApp,
+        /// Сокращение: сколько набранных символов стереть перед действием.
+        erase: usize,
+        /// Сокращение «целым словом»: разделитель, проглоченный хуком, —
+        /// напечатать после действия.
+        suffix: Option<char>,
     },
     TogglePause,
 }
@@ -37,13 +42,15 @@ pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
                         rule,
                         compiled,
                         app: target,
+                        erase,
+                        suffix,
                     } => {
                         let where_ = if target.exe.is_empty() {
                             "?".into()
                         } else {
                             target.exe.clone()
                         };
-                        match run(owner, &rule, &compiled, &target) {
+                        match run(owner, &rule, &compiled, &target, erase, suffix) {
                             Ok(how) => engine::log(
                                 &app,
                                 "ok",
@@ -78,15 +85,36 @@ fn run(
     rule: &Rule,
     compiled: &Compiled,
     target: &ActiveApp,
+    erase: usize,
+    suffix: Option<char>,
 ) -> Result<String, String> {
     modifiers::wait_released(Duration::from_millis(1000));
+    // Пока ждали, человек мог переключиться в другое окно — тогда не
+    // печатаем: текст (а в чате — и Enter) ушёл бы не туда.
+    if target.hwnd != 0 && foreground::current_window() != target.hwnd {
+        return Err("окно сменилось до вставки — отменено, чтобы не напечатать не туда".into());
+    }
+    if erase > 0 {
+        // Стереть набранное сокращение (последний его символ хук проглотил).
+        input::send_chord_times(Chord::new(0, 0x08), erase as u32)?;
+    }
     let ctx = Ctx {
         owner,
         method: rule.method,
         compiled,
         target,
     };
-    act(&ctx, &rule.action)
+    let how = act(&ctx, &rule.action)?;
+    if let Some(c) = suffix {
+        // Enter приходит как \r — печатаем его настоящей клавишей (\n).
+        let text = if c == '\r' {
+            "\n".to_string()
+        } else {
+            c.to_string()
+        };
+        input::type_text(&text)?;
+    }
+    Ok(how)
 }
 
 fn act(ctx: &Ctx, action: &Action) -> Result<String, String> {

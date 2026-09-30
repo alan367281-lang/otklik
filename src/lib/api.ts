@@ -8,6 +8,7 @@ import type { Config, Snippet } from './config'
 export interface RuleView {
   name: string
   hotkey: string | null
+  abbr: string | null
   scope: string
   preview: string
   active: boolean
@@ -54,8 +55,8 @@ const demoConfig: Config = {
   settings: { pause_hotkey: 'Ctrl+Alt+Pause', search_hotkey: 'Ctrl+Alt+Space', paste_threshold: 100, restore_clipboard_ms: 300 },
   apps: { notepad: { exe: 'Notepad.exe', title_contains: null, paste_keys: null } },
   snippets: [
-    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, text: 'Это тестовый текст от Key Manager.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
-    { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: null, text: 'С уважением,\nИван', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
+    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, abbr_mode: 'auto', text: 'Это тестовый текст от Key Manager.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
+    { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: ';подп', abbr_mode: 'auto', text: 'С уважением,\nИван', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
   ],
 }
 
@@ -87,7 +88,7 @@ export const api = {
   saveConfig: (config: Config, stamp: number | null): Promise<number | null> =>
     call('save_config', { config, stamp }, stamp),
   checkConfig: (config: Config): Promise<Check> =>
-    call('check_config', { config }, { rules: config.snippets.map(() => ({ name: '', hotkey: null, scope: '', preview: '', active: true, problem: null })), warnings: [] }),
+    call('check_config', { config }, { rules: config.snippets.map(() => ({ name: '', hotkey: null, abbr: null, scope: '', preview: '', active: true, problem: null })), warnings: [] }),
   listApps: (): Promise<RunningApp[]> =>
     call('list_apps', undefined, [{ exe: 'telegram.exe', title: 'Telegram' }, { exe: 'chrome.exe', title: 'Google Chrome' }]),
   /** null — сочетание можно занимать, иначе — почему нельзя. */

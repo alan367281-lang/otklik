@@ -180,6 +180,8 @@ pub fn test_snippet(
         rule: Arc::new(rule),
         compiled,
         app: foreground::active_app(),
+        erase: 0,
+        suffix: None,
     })
     .map_err(|_| "исполнитель не отвечает".to_string())
 }

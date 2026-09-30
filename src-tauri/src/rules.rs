@@ -3,7 +3,7 @@
 //! по активному приложению. Без WinAPI: всё проверяется тестами.
 
 use crate::chord::Chord;
-use crate::config::{AppDef, Config, Method, OneOrMany, Snippet};
+use crate::config::{AbbrMode, AppDef, Config, Method, OneOrMany, Snippet};
 use crate::macros::{self, KeyOp, TextPiece};
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
@@ -14,6 +14,9 @@ use std::sync::Arc;
 pub struct ActiveApp {
     pub exe: String,
     pub title: String,
+    /// Окно, в котором сработало правило, — исполнитель сверяет, что оно
+    /// всё ещё активно, прежде чем печатать.
+    pub hwnd: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -80,6 +83,7 @@ impl Rule {
 pub struct RuleView {
     pub name: String,
     pub hotkey: Option<String>,
+    pub abbr: Option<String>,
     pub scope: String,
     pub preview: String,
     pub active: bool,
@@ -89,6 +93,7 @@ pub struct RuleView {
 #[derive(Debug)]
 pub struct Compiled {
     pub by_chord: HashMap<Chord, Vec<Arc<Rule>>>,
+    abbrs: Vec<Abbr>,
     pub pause: Option<Chord>,
     pub paste_threshold: usize,
     pub restore_clipboard_ms: u64,
@@ -136,6 +141,69 @@ impl Compiled {
             .find(|(m, _)| m.matches(app))
             .map(|(_, c)| *c)
             .unwrap_or(DEFAULT_PASTE)
+    }
+
+    pub fn has_abbrs(&self) -> bool {
+        !self.abbrs.is_empty()
+    }
+
+    /// Набрано ли сокращение. `typed` — что уже было набрано до этой
+    /// клавиши, `ch` — символ только что нажатой. Приложение узнаём, только
+    /// если по тексту что-то совпало: это самый частый путь хука.
+    pub fn match_abbr(
+        &self,
+        typed: &[char],
+        ch: char,
+        app: impl FnOnce() -> ActiveApp,
+    ) -> Option<AbbrHit> {
+        let mut found: Vec<Found> = Vec::new();
+        for a in &self.abbrs {
+            let n = a.chars.len();
+            if a.word {
+                if !is_separator(ch) || typed.len() < n || typed[typed.len() - n..] != a.chars[..] {
+                    continue;
+                }
+                // Целым словом: «спс» не должно срабатывать в «мспс».
+                if typed.len() > n && is_word_char(typed[typed.len() - n - 1]) {
+                    continue;
+                }
+                found.push((a, n, Some(ch)));
+            } else {
+                if a.chars[n - 1] != ch
+                    || typed.len() < n - 1
+                    || typed[typed.len() - (n - 1)..] != a.chars[..n - 1]
+                {
+                    continue;
+                }
+                found.push((a, n - 1, None));
+            }
+        }
+        if found.is_empty() {
+            return None;
+        }
+        let app = app();
+        // Правило для этого приложения важнее общего, длинное — короткого,
+        // при прочих равных — то, что выше в файле.
+        let mut best: Option<((bool, usize), &Found)> = None;
+        for f in &found {
+            let r = &f.0.rule;
+            if !r.allowed_in(&app) {
+                continue;
+            }
+            let specific = !r.only_in.is_empty();
+            if specific && !r.only_in.iter().any(|m| m.matches(&app)) {
+                continue;
+            }
+            let score = (specific, f.0.chars.len());
+            if best.as_ref().is_none_or(|(b, _)| score > *b) {
+                best = Some((score, f));
+            }
+        }
+        best.map(|(_, (a, erase, suffix))| AbbrHit {
+            rule: a.rule.clone(),
+            erase: *erase,
+            suffix: *suffix,
+        })
     }
 
     pub fn active_count(&self) -> usize {
@@ -267,6 +335,67 @@ fn scope_text(only: &OneOrMany, except: &OneOrMany) -> String {
     }
 }
 
+/// Сокращение, готовое к сравнению с набранным.
+#[derive(Debug)]
+struct Abbr {
+    chars: Vec<char>,
+    /// true — после пробела/знака и целым словом, false — сразу.
+    word: bool,
+    rule: Arc<Rule>,
+}
+
+/// Совпавшее по тексту сокращение: (оно, сколько стереть, разделитель).
+type Found<'a> = (&'a Abbr, usize, Option<char>);
+
+/// Что сделать, когда сокращение набрано.
+#[derive(Debug)]
+pub struct AbbrHit {
+    pub rule: Arc<Rule>,
+    /// Сколько символов стереть Backspace'ом (уже набранную часть сокращения).
+    pub erase: usize,
+    /// Разделитель, который человек нажал последним: мы его проглотили
+    /// и напечатаем после вставки.
+    pub suffix: Option<char>,
+}
+
+fn check_abbr(a: &str, mode: AbbrMode) -> Result<(Vec<char>, bool), String> {
+    let chars: Vec<char> = a.trim().chars().collect();
+    if chars.len() < 2 {
+        return Err("сокращение — хотя бы два символа".into());
+    }
+    if chars.len() > 32 {
+        return Err("сокращение длиннее 32 символов".into());
+    }
+    if chars.iter().any(|c| c.is_whitespace()) {
+        return Err("в сокращении не должно быть пробелов".into());
+    }
+    let word = match mode {
+        AbbrMode::Word => true,
+        AbbrMode::Instant => false,
+        AbbrMode::Auto => is_word_char(chars[0]),
+    };
+    Ok((chars, word))
+}
+
+pub fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Разделитель слов: пробел, Enter, Tab, знаки препинания.
+pub fn is_separator(c: char) -> bool {
+    matches!(c, ' ' | '\r' | '\n' | '\t') || (!is_word_char(c) && !c.is_control())
+}
+
+fn contains(hay: &[char], needle: &[char]) -> bool {
+    hay.windows(needle.len()).any(|w| w == needle)
+}
+
+/// Мешают ли два правила друг другу: оба общие или есть общее приложение.
+fn overlap(a: &Rule, b: &Rule) -> bool {
+    (a.only_in.is_empty() && b.only_in.is_empty())
+        || a.only_in.iter().any(|m| b.only_in.contains(m))
+}
+
 fn preview(text: &str) -> String {
     let one_line = text.trim().replace(['\r', '\n'], " ⏎ ");
     let mut p: String = one_line.chars().take(80).collect();
@@ -301,6 +430,9 @@ pub fn compile(cfg: &Config) -> Compiled {
     }
 
     let mut by_chord: HashMap<Chord, Vec<Arc<Rule>>> = HashMap::new();
+    let mut abbrs: Vec<Abbr> = Vec::new();
+    // Номер строки в views для каждого сокращения — для замечаний о конфликтах.
+    let mut abbr_views: Vec<usize> = Vec::new();
     let mut views = Vec::new();
 
     for (i, s) in cfg.snippets.iter().enumerate() {
@@ -312,6 +444,7 @@ pub fn compile(cfg: &Config) -> Compiled {
         let mut view = RuleView {
             name: name.clone(),
             hotkey: s.hotkey.clone(),
+            abbr: s.abbr.clone(),
             scope: scope_text(&s.only_in, &s.except_in),
             preview: match (&s.text, action_of(s)) {
                 (Some(t), _) => preview(t),
@@ -322,28 +455,34 @@ pub fn compile(cfg: &Config) -> Compiled {
             problem: None,
         };
 
-        let built = (|| -> Result<Option<(Chord, Rule)>, String> {
+        type Built = (Option<Chord>, Option<(Vec<char>, bool)>, Rule);
+        let built = (|| -> Result<Built, String> {
             if !s.enabled {
                 return Err("выключено".into());
             }
             let action = action_of(s)?;
             let only_in = resolve_apps(&s.only_in, &cfg.apps)?;
             let except_in = resolve_apps(&s.except_in, &cfg.apps)?;
-            let Some(hk) = &s.hotkey else {
-                if s.abbr.is_some() {
-                    return Err(
-                        "сокращения появятся в следующей версии — пока нужно сочетание (hotkey)"
-                            .into(),
-                    );
-                }
-                return Err("не задано сочетание (hotkey)".into());
-            };
-            let chord = Chord::parse(hk).map_err(|e| format!("сочетание «{hk}»: {e}"))?;
-            if Some(chord) == pause {
-                return Err(format!("{chord} уже занято паузой"));
+            if s.hotkey.is_none() && s.abbr.is_none() {
+                return Err("не задано ни сочетание, ни сокращение".into());
             }
-            Ok(Some((
+            let chord = match &s.hotkey {
+                Some(hk) => {
+                    let c = Chord::parse(hk).map_err(|e| format!("сочетание «{hk}»: {e}"))?;
+                    if Some(c) == pause {
+                        return Err(format!("{c} уже занято паузой"));
+                    }
+                    Some(c)
+                }
+                None => None,
+            };
+            let abbr = match &s.abbr {
+                Some(a) => Some(check_abbr(a, s.abbr_mode)?),
+                None => None,
+            };
+            Ok((
                 chord,
+                abbr,
                 Rule {
                     name: name.clone(),
                     action,
@@ -351,37 +490,78 @@ pub fn compile(cfg: &Config) -> Compiled {
                     only_in,
                     except_in,
                 },
-            )))
+            ))
         })();
 
         match built {
-            Ok(Some((chord, rule))) => {
-                view.hotkey = Some(chord.to_string());
-                let list = by_chord.entry(chord).or_default();
-                // Два общих правила на одном сочетании — сработает первое.
-                // Правила «только в …» друг другу не мешают, если приложения разные;
-                // пересечение по одному приложению тоже предупреждаем.
-                if let Some(other) = list.iter().find(|o| {
-                    (o.only_in.is_empty() && rule.only_in.is_empty())
-                        || o.only_in.iter().any(|m| rule.only_in.contains(m))
-                }) {
-                    view.problem = Some(format!(
-                        "{chord} уже занято правилом «{}» — сработает то, что выше в файле",
-                        other.name
-                    ));
-                } else {
-                    view.active = true;
+            Ok((chord, abbr, rule)) => {
+                let rule = Arc::new(rule);
+                view.active = true;
+                if let Some(chord) = chord {
+                    view.hotkey = Some(chord.to_string());
+                    let list = by_chord.entry(chord).or_default();
+                    // Два общих правила на одном сочетании — сработает первое.
+                    // Правила «только в …» друг другу не мешают, если приложения разные.
+                    if let Some(other) = list.iter().find(|o| overlap(o, &rule)) {
+                        view.active = false;
+                        view.problem = Some(format!(
+                            "{chord} уже занято правилом «{}» — сработает то, что выше в файле",
+                            other.name
+                        ));
+                    }
+                    list.push(rule.clone());
                 }
-                list.push(Arc::new(rule));
+                if let Some((chars, word)) = abbr {
+                    abbr_views.push(views.len());
+                    abbrs.push(Abbr { chars, word, rule });
+                }
             }
-            Ok(None) => {}
             Err(e) => view.problem = Some(e),
         }
         views.push(view);
     }
 
+    // Конфликты сокращений: одинаковые — сработает верхнее; «сразу»-сокращение
+    // внутри более длинного — длинное не успеет набраться.
+    for j in 0..abbrs.len() {
+        for i in 0..abbrs.len() {
+            if i == j || !overlap(&abbrs[i].rule, &abbrs[j].rule) {
+                continue;
+            }
+            let (a, b) = (&abbrs[i], &abbrs[j]);
+            let text = |x: &Abbr| x.chars.iter().collect::<String>();
+            let problem = if a.chars == b.chars && i < j {
+                Some(format!(
+                    "сокращение «{}» уже есть у «{}» — сработает верхнее",
+                    text(b),
+                    a.rule.name
+                ))
+            } else if !a.word
+                && b.chars.len() > a.chars.len()
+                && contains(&b.chars[..b.chars.len() - 1], &a.chars)
+            {
+                Some(format!(
+                    "не успеет сработать: пока набираете «{}», раньше сработает «{}» («{}»)",
+                    text(b),
+                    text(a),
+                    a.rule.name
+                ))
+            } else {
+                None
+            };
+            if let Some(p) = problem {
+                let v = &mut views[abbr_views[j]];
+                if v.problem.is_none() {
+                    v.problem = Some(p);
+                }
+                v.active = false;
+            }
+        }
+    }
+
     Compiled {
         by_chord,
+        abbrs,
         pause,
         paste_threshold: cfg.settings.paste_threshold,
         restore_clipboard_ms: cfg.settings.restore_clipboard_ms,
@@ -400,6 +580,7 @@ mod tests {
         ActiveApp {
             exe: exe.to_lowercase(),
             title: String::new(),
+            hwnd: 0,
         }
     }
 
@@ -554,5 +735,76 @@ snippets:
         );
         let r = name(&c, "Alt+3", &app("x.exe"));
         assert_eq!(r.as_deref(), Some("цепочка"));
+    }
+    #[test]
+    fn abbreviations_match() {
+        let c = compile(
+            &parse(
+                r#"
+apps:
+  tg: { exe: Telegram.exe }
+snippets:
+  - { name: адрес, abbr: ";адр", text: "ул. Ленина, 1" }
+  - { name: спасибо, abbr: "спс", text: "Спасибо!" }
+  - { name: спасибо тг, abbr: "спс", only_in: tg, text: "спс)" }
+  - { name: принудительно слово, abbr: ";п", abbr_mode: word, text: "x" }
+"#,
+            )
+            .unwrap(),
+        );
+        let t = |s: &str| s.chars().collect::<Vec<char>>();
+        let a = || app("chrome.exe");
+        // «сразу»: последний символ ещё не напечатан — стираем на один меньше
+        let h = c.match_abbr(&t("пишу ;ад"), 'р', a).unwrap();
+        assert_eq!(
+            (h.rule.name.as_str(), h.erase, h.suffix),
+            ("адрес", 3, None)
+        );
+        // «целым словом» — только после разделителя
+        assert!(c.match_abbr(&t("спс"), 'а', a).is_none());
+        let h = c.match_abbr(&t("ок спс"), ' ', a).unwrap();
+        assert_eq!(
+            (h.rule.name.as_str(), h.erase, h.suffix),
+            ("спасибо", 3, Some(' '))
+        );
+        assert!(c.match_abbr(&t("мспс"), ' ', a).is_none());
+        assert_eq!(c.match_abbr(&t("спс"), '!', a).unwrap().erase, 3);
+        // правило для приложения важнее общего
+        let h = c
+            .match_abbr(&t("спс"), ' ', || app("telegram.exe"))
+            .unwrap();
+        assert_eq!(h.rule.name, "спасибо тг");
+        // режим можно задать явно
+        assert!(c.match_abbr(&t(";"), 'п', a).is_none());
+        assert!(c.match_abbr(&t(";п"), '\r', a).is_some());
+    }
+
+    #[test]
+    fn abbreviation_problems() {
+        let c = compile(
+            &parse(
+                r#"
+snippets:
+  - { name: коротк, abbr: ";а", text: x }
+  - { name: длинн, abbr: ";аб", text: y }
+  - { name: дубль, abbr: ";а", text: z }
+  - { name: пробел, abbr: "а б", text: z }
+  - { name: один, abbr: "я", text: z }
+  - { name: без всего, text: z }
+  - { name: сочетание и сокращение, hotkey: Alt+1, abbr: ";ок", text: z }
+"#,
+            )
+            .unwrap(),
+        );
+        let active: Vec<&str> = c
+            .views
+            .iter()
+            .filter(|v| v.active)
+            .map(|v| v.name.as_str())
+            .collect();
+        assert_eq!(active, ["коротк", "сочетание и сокращение"]);
+        assert!(c.views[1].problem.as_deref().unwrap().contains("не успеет"));
+        assert!(c.views[2].problem.as_deref().unwrap().contains("уже есть"));
+        assert!(c.by_chord.contains_key(&Chord::parse("Alt+1").unwrap()));
     }
 }

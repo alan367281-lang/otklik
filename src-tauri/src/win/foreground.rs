@@ -47,6 +47,11 @@ pub fn exe_of(pid: u32) -> String {
     exe
 }
 
+/// Активное окно сейчас — для сверки перед печатью.
+pub fn current_window() -> usize {
+    unsafe { GetForegroundWindow() as usize }
+}
+
 pub fn active_app() -> ActiveApp {
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -60,6 +65,7 @@ pub fn active_app() -> ActiveApp {
         ActiveApp {
             exe: exe_of(pid),
             title: String::from_utf16_lossy(&buf[..n]).to_lowercase(),
+            hwnd: hwnd as usize,
         }
     }
 }

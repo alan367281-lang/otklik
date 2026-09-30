@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type JSX } from 'react'
 import { api, errText, type RuleView } from '../lib/api'
-import { actionKind, list, newSnippet, type Config, type Method, type OneOrMany, type Snippet } from '../lib/config'
+import { actionKind, list, newSnippet, type AbbrMode, type Config, type Method, type OneOrMany, type Snippet } from '../lib/config'
 import { ActionEditor } from '../components/ActionEditor'
 import { AppPicker } from '../components/AppPicker'
 import { HotkeyInput } from '../components/HotkeyInput'
@@ -32,7 +32,7 @@ export function SnippetsPage({ config, views, update }: Props): JSX.Element {
     return config.snippets
       .map((s, i) => ({ s, i }))
       .filter(({ s }) => group === ALL || (group === NONE ? !s.group : s.group === group))
-      .filter(({ s }) => !q || [s.name, s.text, s.hotkey].some((f) => f?.toLowerCase().includes(q)))
+      .filter(({ s }) => !q || [s.name, s.text, s.hotkey, s.abbr].some((f) => f?.toLowerCase().includes(q)))
   }, [config.snippets, group, query])
 
   const add = (): void => {
@@ -75,7 +75,9 @@ export function SnippetsPage({ config, views, update }: Props): JSX.Element {
                   {v?.problem && <span className="warn-dot" title={v.problem} />}
                 </div>
                 <div className="snip-meta">
-                  {s.hotkey ? <Keys chord={s.hotkey} /> : <span className="muted">без сочетания</span>}
+                  {s.hotkey && <Keys chord={s.hotkey} />}
+                  {s.abbr && <span className="abbr-tag">{s.abbr}</span>}
+                  {!s.hotkey && !s.abbr && <span className="muted">не задано, как вызывать</span>}
                   {v && v.scope !== 'везде' && <span className="muted scope-tag">{v.scope}</span>}
                 </div>
               </button>
@@ -208,9 +210,42 @@ function Editor({ index, snippet: s, view, config, groups, update, onSelect }: E
 
       {view?.problem && <div className="alert warn">{view.problem}</div>}
 
-      <Field label="Сочетание клавиш">
-        <HotkeyInput value={s.hotkey} onChange={(v) => set({ hotkey: v })} />
-      </Field>
+      <div className="triggers">
+        <Field label="Сочетание клавиш">
+          <HotkeyInput value={s.hotkey} onChange={(v) => set({ hotkey: v })} />
+        </Field>
+        <Field label="Сокращение">
+          <input
+            className="abbr-input"
+            value={s.abbr ?? ''}
+            onChange={(e) => set({ abbr: e.target.value.replace(/\s/g, '') || null })}
+            placeholder="например ;адр"
+            spellCheck={false}
+          />
+        </Field>
+      </div>
+      {s.abbr && (
+        <Field label="Когда срабатывает сокращение">
+          <Segmented<AbbrMode>
+            value={s.abbr_mode}
+            onChange={(m) => set({ abbr_mode: m })}
+            options={[
+              { value: 'auto', label: 'Сам решит' },
+              { value: 'instant', label: 'Сразу' },
+              { value: 'word', label: 'После пробела' },
+            ]}
+          />
+          <div className="hint">
+            {s.abbr_mode === 'auto' &&
+              (/^[\p{L}\p{N}_]/u.test(s.abbr)
+                ? `Начинается с буквы — сработает после пробела, Enter или знака, и только целым словом («${s.abbr}» внутри другого слова не заменится).`
+                : `Начинается со знака — сработает сразу, как только наберёте «${s.abbr}».`)}
+            {s.abbr_mode === 'instant' && `Сработает сразу, как только наберёте «${s.abbr}» — даже внутри слова.`}
+            {s.abbr_mode === 'word' && 'Сработает после пробела, Enter или знака препинания, и только целым словом. Пробел или знак останется после вставки.'}
+            {' '}Сокращения не срабатывают в окне Key Manager — проверяйте в другой программе.
+          </div>
+        </Field>
+      )}
 
       <ActionEditor snippet={s} set={set} />
 
