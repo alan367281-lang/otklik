@@ -5,7 +5,7 @@
 //! программа «перестаёт работать» без единой ошибки. Поэтому здесь только
 //! сопоставление, а всё исполнение — в потоке исполнителя через канал.
 //!
-//! Проверено на деле: пока в фокусе окно самого Key Manager, Windows хук
+//! Проверено на деле: пока в фокусе окно самого Отклика, Windows хук
 //! не вызывает вовсе. Поэтому сочетание для настроек записывает окно, а
 //! не хук, и сочетания не срабатывают внутри окна настроек.
 //!
@@ -70,7 +70,7 @@ pub fn start(shared: Arc<Shared>, tx: Sender<Job>) {
         return;
     }
     std::thread::Builder::new()
-        .name("km-hook".into())
+        .name("otk-hook".into())
         .spawn(|| unsafe {
             install();
             // Сторож раз в 5 секунд. Таймер без окна приходит в очередь потока.
@@ -97,7 +97,7 @@ unsafe fn install() {
         h[0] = SetWindowsHookExW(WH_KEYBOARD_LL, Some(key_proc), module, 0);
         h[1] = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), module, 0);
         if h[0].is_null() {
-            eprintln!("[km] err не удалось поставить перехват клавиатуры");
+            eprintln!("[otk] err не удалось поставить перехват клавиатуры");
         }
     });
     LAST_CALL.store(GetTickCount(), Ordering::Relaxed);
@@ -156,7 +156,7 @@ fn forget_typed() {
 /// заглавные буквы через Shift) сюда не попадает.
 fn trace(chord: &Chord, msg: impl FnOnce() -> String) {
     if cfg!(debug_assertions) && chord.mods & (CTRL | ALT | WIN) != 0 {
-        eprintln!("[km] hook {chord}: {}", msg());
+        eprintln!("[otk] hook {chord}: {}", msg());
     }
 }
 

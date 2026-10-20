@@ -1,5 +1,5 @@
 //! Права администратора. Windows не пускает ввод от обычной программы в
-//! окна, запущенные от администратора (UIPI), — там Key Manager молчит.
+//! окна, запущенные от администратора (UIPI), — там Отклик молчит.
 //! Решение одно: работать от администратора самому. Здесь — узнать, как
 //! мы запущены, перезапуститься с правами и запускаться так при входе.
 //!
@@ -14,7 +14,7 @@ use std::ptr::{null, null_mut};
 use windows_sys::Win32::UI::Shell::{IsUserAnAdmin, ShellExecuteW};
 use windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE;
 
-const TASK: &str = "Key Manager (администратор)";
+const TASK: &str = "Отклик (администратор)";
 /// Не показывать чёрное окно консоли при вызове schtasks.
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
@@ -83,7 +83,7 @@ fn task_xml(exe: &str) -> String {
     format!(
         r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>Key Manager с правами администратора — чтобы сочетания работали и в окнах администратора.</Description></RegistrationInfo>
+  <RegistrationInfo><Description>Отклик с правами администратора — чтобы сочетания работали и в окнах администратора.</Description></RegistrationInfo>
   <Triggers><LogonTrigger><Enabled>true</Enabled><UserId>{user}</UserId><Delay>PT5S</Delay></LogonTrigger></Triggers>
   <Principals><Principal id="Author"><UserId>{user}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>HighestAvailable</RunLevel></Principal></Principals>
   <Settings>
@@ -118,7 +118,7 @@ pub fn admin_set_task(app: tauri::AppHandle, enabled: bool) -> Result<(), String
         return run_elevated("schtasks.exe", &format!("/Delete /TN \"{TASK}\" /F"));
     }
     // schtasks ждёт XML в UTF-16 с меткой порядка байтов.
-    let path = std::env::temp_dir().join("key-manager-task.xml");
+    let path = std::env::temp_dir().join("otklik-task.xml");
     let mut bytes = vec![0xFF, 0xFE];
     for u in task_xml(&exe()).encode_utf16() {
         bytes.extend_from_slice(&u.to_le_bytes());
@@ -152,8 +152,8 @@ mod tests {
 
     #[test]
     fn task_xml_escapes_path() {
-        let x = task_xml(r"C:\Program Files\A&B\key-manager.exe");
-        assert!(x.contains(r#"<Command>"C:\Program Files\A&amp;B\key-manager.exe"</Command>"#));
+        let x = task_xml(r"C:\Program Files\A&B\otklik.exe");
+        assert!(x.contains(r#"<Command>"C:\Program Files\A&amp;B\otklik.exe"</Command>"#));
         assert!(x.contains("<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>"));
         assert!(x.contains("<RunLevel>HighestAvailable</RunLevel>"));
     }

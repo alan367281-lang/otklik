@@ -25,7 +25,7 @@ const HEIGHT: f64 = 440.0;
 
 pub fn create(app: &App) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("search.html".into()))
-        .title("Key Manager — поиск")
+        .title("Отклик — поиск")
         .inner_size(WIDTH, HEIGHT)
         .decorations(false)
         .resizable(false)

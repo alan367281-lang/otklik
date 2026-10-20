@@ -78,7 +78,7 @@ pub fn log(app: &AppHandle, kind: &'static str, text: impl Into<String>) {
         kind,
         text: text.into(),
     };
-    eprintln!("[km] {} {}", entry.kind, entry.text);
+    eprintln!("[otk] {} {}", entry.kind, entry.text);
     {
         let s = shared(app);
         let mut j = s.journal.lock();
@@ -104,7 +104,7 @@ pub fn notify(app: &AppHandle, body: &str) {
     let _ = app
         .notification()
         .builder()
-        .title("Key Manager")
+        .title("Отклик")
         .body(body)
         .show();
 }
@@ -191,7 +191,7 @@ pub fn save_config(
 /// сохраняют через «записать рядом и переименовать», так тоже ловятся.
 pub fn watch(app: AppHandle) {
     std::thread::Builder::new()
-        .name("km-watch".into())
+        .name("otk-watch".into())
         .spawn(move || {
             let s = shared(&app);
             let mut last = config::stamp(&s.config_path);

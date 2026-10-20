@@ -1,13 +1,13 @@
 [package]
-name = "key-manager"
+name = "otklik"
 version = "0.1.0"
-description = "Key Manager — горячие клавиши и заготовки текста"
+description = "Отклик — горячие клавиши и заготовки текста"
 authors = []
 edition = "2021"
 rust-version = "1.82"
 
 [lib]
-name = "key_manager_lib"
+name = "otklik_lib"
 # Только rlib: программа живёт лишь на Windows-десктопе, мобильные
 # staticlib/cdylib из шаблона Tauri нам не нужны и удлиняют сборку.
 crate-type = ["rlib"]

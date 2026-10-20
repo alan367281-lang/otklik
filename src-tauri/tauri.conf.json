@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Key Manager",
+  "productName": "Отклик",
   "version": "0.1.0",
-  "identifier": "app.keymanager.desktop",
+  "identifier": "app.otklik.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5174",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Key Manager",
+        "title": "Отклик",
         "width": 980,
         "height": 700,
         "minWidth": 720,
@@ -39,7 +39,7 @@
         "installMode": "currentUser",
         "languages": ["Russian"],
         "displayLanguageSelector": false,
-        "startMenuFolder": "Key Manager"
+        "startMenuFolder": "Отклик"
       }
     }
   }

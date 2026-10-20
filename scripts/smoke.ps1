@@ -1,16 +1,16 @@
-﻿# Сквозной тест Key Manager: жмёт сочетания так же, как человек, в своём
+﻿# Сквозной тест Отклика: жмёт сочетания так же, как человек, в своём
 # окошке с полем ввода и проверяет результат.
 #
 # Тест не зависит от ваших правил: на время проверки дописывает в
 # config.yaml свои (на редких сочетаниях Ctrl+Alt+Shift+F7…F11) и потом
-# возвращает файл как был — даже если тест упал. Key Manager должен быть
+# возвращает файл как был — даже если тест упал. Отклик должен быть
 # запущен.
 #
 # Безопасность: клавиши посылаются, только если в фокусе окно теста.
 # Если фокус ушёл (человек переключил окно) — проверка помечается как
 # недостоверная, а не как сбой.
 
-param([string]$Config = "$env:APPDATA\app.keymanager.desktop\config.yaml")
+param([string]$Config = "$env:APPDATA\app.otklik.desktop\config.yaml")
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type @"
@@ -109,10 +109,10 @@ try {
   $body = $original.TrimEnd()
   if ($body -notmatch '(?m)^snippets:') { $body += "`nsnippets:" }
   [IO.File]::WriteAllText($Config, $body + "`n" + $rules + "`n", (New-Object Text.UTF8Encoding($false)))
-  Start-Sleep -Milliseconds 2500   # Key Manager перечитывает файл раз в секунду
+  Start-Sleep -Milliseconds 2500   # Отклик перечитывает файл раз в секунду
 
   $form = New-Object System.Windows.Forms.Form
-  $form.Text = 'Key Manager — автотест'
+  $form.Text = 'Отклик — автотест'
   $form.Width = 520; $form.Height = 260; $form.TopMost = $true
   $form.StartPosition = 'CenterScreen'
   $box = New-Object System.Windows.Forms.TextBox
@@ -196,7 +196,7 @@ try {
         } {
           [Kb]::Chord([UInt16[]]@(0xA2, 0xA4), 0x20) | Out-Null
           Wait-Ui 900
-          if ([Kb]::ForegroundInfo() -ne 'key-manager.exe') { throw "окно поиска не получило фокус (в фокусе $([Kb]::ForegroundInfo()))" }
+          if ([Kb]::ForegroundInfo() -ne 'otklik.exe') { throw "окно поиска не получило фокус (в фокусе $([Kb]::ForegroundInfo()))" }
           [Kb]::TypeUnicode('__тест короткий') | Out-Null
           Wait-Ui 400
           [Kb]::Chord([UInt16[]]@(), 0x0D) | Out-Null

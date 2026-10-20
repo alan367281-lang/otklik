@@ -41,7 +41,7 @@ function modsOf(e: KeyboardEvent): string[] {
 }
 
 // Сочетание записывает само окно. Перехват клавиатуры ядра здесь не
-// поможет: пока окно Key Manager в фокусе, Windows его не вызывает.
+// поможет: пока окно Отклика в фокусе, Windows его не вызывает.
 // Проверяет записанное ядро — по тем же правилам, что и файл настроек.
 export function HotkeyInput({ value, onChange, clearable = true }: Props): JSX.Element {
   const [recording, setRecording] = useState(false)

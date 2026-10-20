@@ -1,7 +1,7 @@
-//! Key Manager: сочетание клавиш → действие (пока — вставка текста).
+//! Отклик: сочетание клавиш → действие (пока — вставка текста).
 //!
-//! Потоки: km-hook (перехват клавиатуры) → канал → km-exec (исполнение),
-//! km-watch (следит за config.yaml). Подробно — docs/ARCHITECTURE.md.
+//! Потоки: otk-hook (перехват клавиатуры) → канал → otk-exec (исполнение),
+//! otk-watch (следит за config.yaml). Подробно — docs/ARCHITECTURE.md.
 
 pub mod chord;
 pub mod config;
@@ -20,6 +20,29 @@ mod win;
 
 use std::sync::{mpsc, Arc};
 use tauri::{Manager, WindowEvent};
+
+/// Программа раньше называлась Key Manager и хранила настройки в
+/// `%APPDATA%\app.keymanager.desktop`. Если новых настроек ещё нет, а старые
+/// есть, — переносим их копией (старую папку не трогаем: вдруг откат).
+fn migrate_from_key_manager(new_config: &std::path::Path) {
+    if new_config.exists() {
+        return;
+    }
+    let Some(appdata) = new_config.parent().and_then(|d| d.parent()) else {
+        return;
+    };
+    let old = appdata.join("app.keymanager.desktop").join("config.yaml");
+    if !old.exists() {
+        return;
+    }
+    if let Some(dir) = new_config.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    match std::fs::copy(&old, new_config) {
+        Ok(_) => eprintln!("[otk] info настройки перенесены из Key Manager"),
+        Err(e) => eprintln!("[otk] err не удалось перенести настройки Key Manager: {e}"),
+    }
+}
 
 /// Автозапуск хранит путь к программе. После переустановки или
 /// обновления путь мог измениться — перезаписываем его при каждом старте.
@@ -79,10 +102,11 @@ pub fn run() {
         })
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("config.yaml");
+            migrate_from_key_manager(&path);
             let first_run = match config::ensure_exists(&path) {
                 Ok(created) => created,
                 Err(e) => {
-                    eprintln!("[km] err {e}");
+                    eprintln!("[otk] err {e}");
                     false
                 }
             };
@@ -106,5 +130,5 @@ pub fn run() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("Key Manager не запустился");
+        .expect("Отклик не запустился");
 }

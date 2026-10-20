@@ -80,14 +80,14 @@ const demoConfig: Config = {
   settings: { pause_hotkey: 'Ctrl+Alt+Pause', search_hotkey: 'Ctrl+Alt+Space', paste_threshold: 100, restore_clipboard_ms: 300 },
   apps: { notepad: { exe: 'Notepad.exe', title_contains: null, paste_keys: null } },
   snippets: [
-    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, abbr_mode: 'auto', text: 'Это тестовый текст от Key Manager.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
+    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, abbr_mode: 'auto', text: 'Это тестовый текст от Отклика.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
     { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: ';подп', abbr_mode: 'auto', text: 'С уважением,\nИван', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
   ],
 }
 
 const demoStatus: Status = {
   paused: false,
-  configPath: 'C:\\Users\\…\\app.keymanager.desktop\\config.yaml',
+  configPath: 'C:\\Users\\…\\app.otklik.desktop\\config.yaml',
   loadedAt: '12:00:00',
   error: null,
   warnings: [],
@@ -126,7 +126,7 @@ export const api = {
 
   searchList: (): Promise<SearchItem[]> =>
     call('search_list', undefined, [
-      { index: 0, name: 'Тест', hotkey: 'Alt+1', abbr: null, group: null, preview: 'Это тестовый текст', detail: 'Это тестовый текст от Key Manager.' },
+      { index: 0, name: 'Тест', hotkey: 'Alt+1', abbr: null, group: null, preview: 'Это тестовый текст', detail: 'Это тестовый текст от Отклика.' },
       { index: 1, name: 'Подпись', hotkey: null, abbr: ';подп', group: 'Почта', preview: 'С уважением, ⏎ Иван', detail: 'С уважением,\nИван' },
     ]),
   searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),

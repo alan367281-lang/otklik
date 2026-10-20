@@ -36,7 +36,7 @@ pub enum Job {
 
 pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
     std::thread::Builder::new()
-        .name("km-exec".into())
+        .name("otk-exec".into())
         .spawn(move || {
             let owner = clipboard::owner_window();
             for job in rx {

@@ -129,8 +129,8 @@ export function App(): JSX.Element {
     <div className="shell">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">K</span>
-          <span className="brand-name">Key Manager</span>
+          <span className="logo">О</span>
+          <span className="brand-name">Отклик</span>
         </div>
         <nav className="tabs">
           {TABS.map((t) => (

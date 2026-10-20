@@ -17,7 +17,7 @@ pub struct TrayUi {
 }
 
 pub fn build(app: &App) -> tauri::Result<()> {
-    let open = MenuItem::with_id(app, "open", "Открыть Key Manager", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Открыть Отклик", true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", "Пауза", true, None::<&str>)?;
     let edit = MenuItem::with_id(app, "edit", "Открыть файл настроек", true, None::<&str>)?;
     let reload = MenuItem::with_id(app, "reload", "Перечитать настройки", true, None::<&str>)?;
@@ -28,7 +28,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("main")
         .icon(Image::from_bytes(ICON)?)
-        .tooltip("Key Manager")
+        .tooltip("Отклик")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -69,9 +69,9 @@ pub fn show_paused(app: &AppHandle, paused: bool) {
             let _ = tray.set_icon(Some(img));
         }
         let _ = tray.set_tooltip(Some(if paused {
-            "Key Manager — пауза"
+            "Отклик — пауза"
         } else {
-            "Key Manager"
+            "Отклик"
         }));
     }
 }

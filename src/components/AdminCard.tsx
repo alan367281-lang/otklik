@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import { api, errText, type AdminStatus } from '../lib/api'
 
-// Права администратора: без них Key Manager не может печатать в окна,
+// Права администратора: без них Отклик не может печатать в окна,
 // запущенные от администратора (так устроена защита Windows).
 export function AdminCard(): JSX.Element {
   const [st, setSt] = useState<AdminStatus | null>(null)
@@ -40,7 +40,7 @@ export function AdminCard(): JSX.Element {
       <h2>Права администратора</h2>
       <div className="hint">
         Windows не даёт обычной программе печатать в окна, запущенные от имени администратора (диспетчер задач,
-        часть установщиков и системных настроек). Если нужно, чтобы сочетания работали и там, — запускайте Key Manager
+        часть установщиков и системных настроек). Если нужно, чтобы сочетания работали и там, — запускайте Отклик
         от администратора.
       </div>
       <div className="set-row">

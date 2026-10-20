@@ -1,7 +1,7 @@
 {
-  "name": "key-manager",
+  "name": "otklik",
   "version": "0.1.0",
-  "description": "Key Manager — горячие клавиши и заготовки текста",
+  "description": "Отклик — горячие клавиши и заготовки текста",
   "author": "",
   "private": true,
   "type": "module",
