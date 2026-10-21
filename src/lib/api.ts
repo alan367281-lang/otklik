@@ -75,14 +75,41 @@ export interface SearchItem {
 
 const native = '__TAURI_INTERNALS__' in window
 
+// Демо-данные для режима разработки в браузере (npm run dev:web) —
+// по ним смотрят вёрстку и снимают экраны для README.
+function demo(p: Partial<Snippet> & { name: string }): Snippet {
+  return {
+    enabled: true, group: null, hotkey: null, abbr: null, abbr_mode: 'auto', text: null, keys: null,
+    open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null, ...p,
+  }
+}
+
 const demoConfig: Config = {
   version: 1,
   settings: { pause_hotkey: 'Ctrl+Alt+Pause', search_hotkey: 'Ctrl+Alt+Space', paste_threshold: 100, restore_clipboard_ms: 300 },
-  apps: { notepad: { exe: 'Notepad.exe', title_contains: null, paste_keys: null } },
+  apps: {
+    telegram: { exe: 'Telegram.exe', title_contains: null, paste_keys: null },
+    terminal: { exe: 'WindowsTerminal.exe', title_contains: null, paste_keys: 'Ctrl+Shift+V' },
+  },
   snippets: [
-    { name: 'Тест', enabled: true, group: null, hotkey: 'Alt+1', abbr: null, abbr_mode: 'auto', text: 'Это тестовый текст от Отклика.', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
-    { name: 'Подпись', enabled: true, group: 'Почта', hotkey: 'Ctrl+Alt+2', abbr: ';подп', abbr_mode: 'auto', text: 'С уважением,\nИван', keys: null, open: null, args: null, steps: null, method: 'auto', only_in: null, except_in: null },
+    demo({ name: 'Подпись', group: 'Почта', hotkey: 'Ctrl+Alt+1', abbr: ';подп', text: 'С уважением,\nИван\n{date:%d %B %Y}' }),
+    demo({ name: 'Ответ на заявку', group: 'Почта', abbr: ';отв', text: 'Добрый день, {cursor}!\n\nСпасибо за заявку — посмотрю и вернусь с ответом до конца дня.' }),
+    demo({ name: 'Адрес офиса', group: 'Работа', abbr: ';адр', text: 'ул. Примерная, 1, офис 5' }),
+    demo({ name: 'Спасибо (Telegram)', group: 'Чаты', abbr: 'спс', only_in: 'telegram', text: 'Спасибо! 🙏' }),
+    demo({ name: 'Ссылка на встречу', group: 'Работа', hotkey: 'Ctrl+Alt+M', text: 'Ссылка на встречу: {clipboard}' }),
+    demo({ name: 'Заполнить форму', group: 'Работа', hotkey: 'Ctrl+Alt+F', keys: 'Иванов{Tab}Иван{Tab}{wait 200}{Enter}' }),
+    demo({ name: 'Утро', hotkey: 'Ctrl+Alt+U', steps: [{ open: 'https://tracker.yandex.ru' }, { wait: 1500 }, { keys: '{Ctrl+L}' }] }),
   ],
+}
+
+// Имитация подстановок для демо-режима: в браузере ядра нет.
+function demoPreview(text: string): string {
+  return text
+    .replace(/\{(date|дата):[^}]*%B[^}]*\}/gi, '21 октября 2026')
+    .replace(/\{(date|дата)[^}]*\}/gi, '21.10.2026')
+    .replace(/\{(time|время)[^}]*\}/gi, '14:05')
+    .replace(/\{(clipboard|буфер)\}/gi, 'https://telemost.yandex.ru/j/123')
+    .replace(/\{(cursor|курсор)\}/gi, '‸')
 }
 
 const demoStatus: Status = {
@@ -92,7 +119,7 @@ const demoStatus: Status = {
   error: null,
   warnings: [],
   pauseHotkey: 'Ctrl+Alt+Pause',
-  activeCount: 2,
+  activeCount: 7,
   rules: [],
 }
 
@@ -116,19 +143,28 @@ export const api = {
     call('check_config', { config }, { rules: config.snippets.map(() => ({ name: '', hotkey: null, abbr: null, group: null, detail: '', scope: '', preview: '', active: true, problem: null })), warnings: [] }),
   listApps: (): Promise<RunningApp[]> =>
     call('list_apps', undefined, [{ exe: 'telegram.exe', title: 'Telegram' }, { exe: 'chrome.exe', title: 'Google Chrome' }]),
-  /** null — сочетание можно занимать, иначе — почему нельзя. */
   /** Что вставится прямо сейчас (‸ — место курсора). */
-  previewText: (text: string): Promise<string> => call('preview_text', { text }, text),
+  previewText: (text: string): Promise<string> => call('preview_text', { text }, demoPreview(text)),
+  /** null — сочетание можно занимать, иначе — почему нельзя. */
   checkChord: (chord: string): Promise<string | null> => call('check_chord', { chord }, null),
   testSnippet: (snippet: Snippet): Promise<void> => call('test_snippet', { snippet }),
   getAutostart: (): Promise<boolean> => call('get_autostart', undefined, false),
   setAutostart: (enabled: boolean): Promise<void> => call('set_autostart', { enabled }),
 
   searchList: (): Promise<SearchItem[]> =>
-    call('search_list', undefined, [
-      { index: 0, name: 'Тест', hotkey: 'Alt+1', abbr: null, group: null, preview: 'Это тестовый текст', detail: 'Это тестовый текст от Отклика.' },
-      { index: 1, name: 'Подпись', hotkey: null, abbr: ';подп', group: 'Почта', preview: 'С уважением, ⏎ Иван', detail: 'С уважением,\nИван' },
-    ]),
+    call(
+      'search_list',
+      undefined,
+      demoConfig.snippets.map((sn, index) => ({
+        index,
+        name: sn.name,
+        hotkey: sn.hotkey,
+        abbr: sn.abbr,
+        group: sn.group,
+        preview: (sn.text ?? sn.keys ?? 'цепочка шагов').replace(/\n/g, ' ⏎ ').slice(0, 80),
+        detail: sn.text ?? sn.keys ?? 'открыть → пауза → клавиши',
+      })),
+    ),
   searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),
   searchHide: (restore: boolean): Promise<void> => call('search_hide', { restore }),
   adminStatus: (): Promise<AdminStatus> => call('admin_status', undefined, { elevated: false, task: false, exe: '' }),
