@@ -80,7 +80,7 @@ export function GeneralPage({ config, status, update }: Props): JSX.Element {
         <h2>Запуск</h2>
         <div className="set-row">
           <div>
-            <div className="set-title">Запускать вместе с Windows</div>
+            <div className="set-title">Запускать при входе в систему</div>
             <div className="hint">Применяется сразу, без кнопки «Сохранить».</div>
             {autoErr && <div className="field-problem">{autoErr}</div>}
           </div>
