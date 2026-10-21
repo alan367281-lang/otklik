@@ -13,10 +13,10 @@
 <p align="center">
   <a href="https://github.com/alan367281-lang/otklik/releases/latest/download/Otklik_Windows_setup.exe"><img alt="Скачать для Windows" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
   &nbsp;
-  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.2/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/alan367281-lang/otklik/releases/latest/download/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
 </p>
 
-<p align="center"><sub>macOS — первая версия, проверяется · <a href="#macos">как установить на Mac</a> · <a href="../../releases">все выпуски</a></sub></p>
+<p align="center"><sub>Обновляется сама · <a href="#macos">как установить на Mac</a> · <a href="../../releases">все выпуски</a></sub></p>
 
 <p align="center">
   <a href="docs/ARCHITECTURE.md">Как устроено</a> ·
@@ -119,6 +119,18 @@
 
 Переезжаете с Espanso? «Общие → Импорт из Espanso» перенесёт заготовки.
 
+### Обновления
+
+Отклик сам проверяет обновления — при запуске и раз в 6 часов. Нашлась новая
+версия — уведомление и полоса «Доступна версия…» в окне: кнопка «Обновить»
+скачает, поставит и перезапустит программу. Без вашего согласия ничего не
+ставится. Проверить вручную — «Общие → Обновления» или пункт в трее.
+
+Каждое обновление подписано ключом проекта; программа ставит только то, что
+подписано им. На Mac приложение не подписано в Apple, поэтому после
+обновления macOS может забыть разрешение «Универсальный доступ» — карточка
+«Разрешения macOS» в «Общих» покажет это и откроет нужный раздел Настроек.
+
 ## Настройки
 
 Всё, что есть в окне, хранится в одном файле —
@@ -172,9 +184,15 @@ npm run dev:web      # только окно в браузере, на демо-
 npm run build        # установщик → D:\dev\cargo-target\release\bundle\nsis\
 ```
 
-Версия для Mac собирается на GitHub (на Windows её не собрать): каждый push —
-тесты и clippy на обеих системах и `.dmg` в файлах сборки, метка `v*` —
-`.dmg` прямо в выпуск. Подробно — `.github/workflows/build.yml`.
+Локальная сборка подписывает обновление — нужен ключ (лежит вне репозитория):
+`TAURI_SIGNING_PRIVATE_KEY=~/.tauri/otklik.key` и пустой
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+**Выпуск** делает GitHub (`.github/workflows/build.yml`): каждый push — тесты и
+clippy на обеих системах; выпуск — создать его с описанием изменений
+(`gh release create vX.Y.Z --notes …`), и сборка по метке положит туда
+подписанные установщики обеих систем и `latest.json` для обновлений.
+Версия — в `package.json`, `src-tauri/Cargo.toml` и `tauri.conf.json`.
 
 Общая папка сборки Rust — `D:\dev\cargo-target` (переменная `CARGO_TARGET_DIR`).
 

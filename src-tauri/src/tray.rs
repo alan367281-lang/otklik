@@ -11,9 +11,10 @@ use tauri::{App, AppHandle, Manager, Wry};
 const ICON: &[u8] = include_bytes!("../icons/tray.png");
 const ICON_PAUSED: &[u8] = include_bytes!("../icons/tray-paused.png");
 
-/// Пункт «Пауза / Продолжить» — меняем его подпись при переключении.
+/// Пункты, чьи подписи меняются: «Пауза / Продолжить» и обновление.
 pub struct TrayUi {
     pause: MenuItem<Wry>,
+    update: MenuItem<Wry>,
 }
 
 pub fn build(app: &App) -> tauri::Result<()> {
@@ -21,10 +22,14 @@ pub fn build(app: &App) -> tauri::Result<()> {
     let pause = MenuItem::with_id(app, "pause", "Пауза", true, None::<&str>)?;
     let edit = MenuItem::with_id(app, "edit", "Открыть файл настроек", true, None::<&str>)?;
     let reload = MenuItem::with_id(app, "reload", "Перечитать настройки", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", "Проверить обновления", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let menu = Menu::with_items(app, &[&open, &pause, &sep, &edit, &reload, &sep2, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[&open, &pause, &sep, &edit, &reload, &update, &sep2, &quit],
+    )?;
 
     TrayIconBuilder::with_id("main")
         .icon(Image::from_bytes(ICON)?)
@@ -36,6 +41,27 @@ pub fn build(app: &App) -> tauri::Result<()> {
             "pause" => engine::toggle_pause(app),
             "edit" => crate::commands::open_config_file(app),
             "reload" => engine::reload(app),
+            // Есть найденное обновление — ставим (человек сам нажал), нет —
+            // проверяем и сообщаем результат.
+            "update" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    let has = app.state::<crate::updater::Pending>().has();
+                    let result = if has {
+                        crate::updater::install(&app).await
+                    } else {
+                        crate::updater::check(&app, false).await.map(|found| {
+                            if found.is_none() {
+                                engine::notify(&app, "Обновлений нет — у вас последняя версия");
+                            }
+                        })
+                    };
+                    if let Err(e) = result {
+                        engine::log(&app, "err", e.clone());
+                        engine::notify(&app, &e);
+                    }
+                });
+            }
             "quit" => app.exit(0),
             _ => {}
         })
@@ -51,7 +77,7 @@ pub fn build(app: &App) -> tauri::Result<()> {
         })
         .build(app)?;
 
-    app.manage(TrayUi { pause });
+    app.manage(TrayUi { pause, update });
     Ok(())
 }
 
@@ -73,6 +99,17 @@ pub fn show_paused(app: &AppHandle, paused: bool) {
         } else {
             "Отклик"
         }));
+    }
+}
+
+/// Подпись пункта обновлений: «Обновить до X» или «Проверить обновления».
+pub fn show_update(app: &AppHandle, version: Option<&str>) {
+    if let Some(ui) = app.try_state::<TrayUi>() {
+        let text = match version {
+            Some(v) => format!("Обновить до {v}"),
+            None => "Проверить обновления".into(),
+        };
+        let _ = ui.update.set_text(text);
     }
 }
 

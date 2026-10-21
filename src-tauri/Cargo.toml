@@ -21,6 +21,9 @@ tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+# Таймер для фоновой проверки обновлений; tokio и так в сборке через Tauri.
+tokio = { version = "1", features = ["time"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Живой форк serde_yaml (тот заброшен в 2024-м).

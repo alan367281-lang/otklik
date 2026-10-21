@@ -18,6 +18,7 @@ mod mac;
 mod platform;
 mod search;
 mod tray;
+mod updater;
 #[cfg(windows)]
 mod win;
 
@@ -66,6 +67,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -93,6 +95,10 @@ pub fn run() {
             platform::admin::open_permissions,
             espanso::import_espanso,
             commands::test_snippet,
+            updater::app_version,
+            updater::update_status,
+            updater::update_check,
+            updater::update_install,
             commands::get_autostart,
             commands::set_autostart,
         ])
@@ -125,6 +131,7 @@ pub fn run() {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
                 mac::request_accessibility();
             }
+            app.manage(updater::Pending::default());
             tray::build(app)?;
             sync_autostart(app.handle());
             search::create(app)?;
@@ -136,6 +143,7 @@ pub fn run() {
             executor::spawn(handle.clone(), rx);
             hook::start(shared, tx);
             engine::watch(handle.clone());
+            updater::spawn_checker(handle.clone());
 
             if first_run {
                 tray::show_main(&handle);

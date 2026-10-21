@@ -11,6 +11,12 @@ export interface AdminStatus {
   exe: string
 }
 
+export interface UpdateInfo {
+  version: string
+  current: string
+  notes: string | null
+}
+
 export interface PlatformInfo {
   os: 'windows' | 'macos'
   trusted: boolean
@@ -172,6 +178,10 @@ export const api = {
     ),
   searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),
   searchHide: (restore: boolean): Promise<void> => call('search_hide', { restore }),
+  appVersion: (): Promise<string> => call('app_version', undefined, '0.2.0'),
+  updateStatus: (): Promise<UpdateInfo | null> => call('update_status', undefined, null),
+  updateCheck: (): Promise<UpdateInfo | null> => call('update_check', undefined, null),
+  updateInstall: (): Promise<void> => call('update_install'),
   platformInfo: (): Promise<PlatformInfo> => call('platform_info', undefined, { os: 'windows', trusted: true }),
   openPermissions: (): Promise<void> => call('open_permissions'),
   adminStatus: (): Promise<AdminStatus> => call('admin_status', undefined, { elevated: false, task: false, exe: '' }),

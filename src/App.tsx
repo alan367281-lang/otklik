@@ -5,6 +5,7 @@ import { SnippetsPage } from './pages/Snippets'
 import { AppsPage } from './pages/Apps'
 import { GeneralPage } from './pages/General'
 import { JournalPage } from './pages/Journal'
+import { UpdateBanner } from './components/UpdateBanner'
 
 type Tab = 'snippets' | 'apps' | 'general' | 'journal'
 
@@ -149,6 +150,7 @@ export function App(): JSX.Element {
         </button>
       </header>
 
+      <UpdateBanner />
       {(loadError || status.error) && (
         <div className="banner err">
           <div className="grow">

@@ -6,6 +6,7 @@ import { AdminCard } from '../components/AdminCard'
 import { PermissionsCard } from '../components/PermissionsCard'
 import { isMac } from '../lib/platform'
 import { EspansoImport } from '../components/EspansoImport'
+import { UpdatesCard } from '../components/UpdatesCard'
 
 interface Props {
   config: Config
@@ -92,6 +93,8 @@ export function GeneralPage({ config, status, update }: Props): JSX.Element {
       </section>
 
       {isMac ? <PermissionsCard /> : <AdminCard />}
+
+      <UpdatesCard />
 
       <EspansoImport config={config} update={update} />
 

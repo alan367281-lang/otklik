@@ -196,3 +196,10 @@ select {
 .import-box { margin-top: 10px; padding: 10px 12px; border-radius: 9px; background: var(--kbd); font-size: 13px; }
 .import-box summary { color: var(--ink2); margin-top: 6px; }
 .skip-list { margin: 6px 0 0; padding-left: 18px; color: var(--ink2); max-height: 160px; overflow: auto; user-select: text; }
+
+/* Обновление */
+.banner.update { background: var(--ac-soft); color: var(--ink); }
+.banner.update .muted-inv { color: var(--ink3); }
+.banner.update button { border-color: var(--line); }
+.banner.update button.primary { background: var(--ac); border-color: var(--ac); color: #fff; }
+.update-notes { white-space: pre-wrap; font-size: 12.5px; color: var(--ink2); margin-top: 6px; max-height: 160px; overflow: auto; user-select: text; }
