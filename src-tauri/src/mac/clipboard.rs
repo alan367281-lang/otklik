@@ -8,12 +8,18 @@ use objc2::runtime::ProtocolObject;
 use objc2_app_kit::{NSPasteboard, NSPasteboardItem, NSPasteboardTypeString, NSPasteboardWriting};
 use objc2_foundation::{NSArray, NSData, NSString};
 
-/// Владельца у буфера на Mac нет — тип ради одинаковых функций с Windows.
-pub type Owner = ();
+/// Владельца у буфера на Mac нет — пустой тип ради одинаковых функций с
+/// Windows (там владелец — невидимое окно).
+#[derive(Clone, Copy)]
+pub struct Owner;
 
-pub fn owner_window() -> Owner {}
+pub fn owner_window() -> Owner {
+    Owner
+}
 
-pub fn no_owner() -> Owner {}
+pub fn no_owner() -> Owner {
+    Owner
+}
 
 /// Пометки для менеджеров буфера (соглашение nspasteboard.org): «временное,
 /// не запоминать» — наша подмена не должна засорять историю.

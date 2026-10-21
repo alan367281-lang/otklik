@@ -29,8 +29,8 @@ pub fn request_accessibility() -> bool {
             keys.as_ptr(),
             values.as_ptr(),
             1,
-            &ffi::kCFTypeDictionaryKeyCallBacks as *const _ as *const std::ffi::c_void,
-            &ffi::kCFTypeDictionaryValueCallBacks as *const _ as *const std::ffi::c_void,
+            &ffi::kCFTypeDictionaryKeyCallBacks as *const std::ffi::c_void,
+            &ffi::kCFTypeDictionaryValueCallBacks as *const std::ffi::c_void,
         );
         let trusted = ffi::AXIsProcessTrustedWithOptions(dict);
         if !dict.is_null() {
