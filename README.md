@@ -5,13 +5,20 @@
 <h1 align="center">Отклик</h1>
 
 <p align="center">
-  Горячие клавиши и заготовки текста для Windows.<br>
+  Горячие клавиши и заготовки текста для Windows и macOS.<br>
   Нажал сочетание или набрал сокращение — в любом окне появился нужный текст,<br>
   нажались клавиши или открылась программа.
 </p>
 
 <p align="center">
-  <a href="../../releases/latest">Скачать</a> ·
+  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.1.0/Otklik_0.1.0_x64-setup.exe"><img alt="Скачать для Windows" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
+  &nbsp;
+  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+</p>
+
+<p align="center"><sub>macOS — первая версия, проверяется · <a href="#macos">как установить на Mac</a> · <a href="../../releases">все выпуски</a></sub></p>
+
+<p align="center">
   <a href="docs/ARCHITECTURE.md">Как устроено</a> ·
   <a href="#разработка">Разработка</a>
 </p>
@@ -72,14 +79,43 @@
 
 ## Установка
 
-1. Скачайте `Otklik_…_x64-setup.exe` со страницы [выпусков](../../releases/latest)
+### Windows
+
+1. Скачайте [установщик для Windows](https://github.com/alan367281-lang/otklik/releases/download/v0.1.0/Otklik_0.1.0_x64-setup.exe)
    и запустите. Ставится для текущего пользователя, права администратора не нужны.
 2. В трее появится значок **О**. Щелчок — окно настроек.
-3. Запуск вместе с Windows — «Общие → Запускать вместе с Windows»
+3. Запуск вместе с Windows — «Общие → Запускать при входе в систему»
    (или ярлык в папке автозагрузки — что-то одно).
 
 Чтобы сочетания работали и в окнах, запущенных от администратора (диспетчер
 задач, установщики), — «Общие → Права администратора».
+
+### macOS
+
+1. Скачайте [Otklik_macOS.dmg](https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg)
+   (подходит и для Apple Silicon, и для Intel), откройте и перетащите
+   **Отклик** в «Программы».
+2. Приложение не подписано в Apple, поэтому при первом запуске macOS скажет,
+   что не может проверить разработчика. Откройте **Системные настройки →
+   Конфиденциальность и безопасность** и нажмите **«Всё равно открыть»**
+   у Отклика. Или одной командой в Терминале:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Отклик.app
+   ```
+3. Отклик попросит разрешение **«Универсальный доступ»** — без него macOS не
+   даёт ловить сочетания и печатать в другие программы. Включите Отклик в
+   **Настройки → Конфиденциальность и безопасность → Универсальный доступ**:
+   заработает сразу, без перезапуска.
+4. Значок **О** появится в строке меню вверху. Запуск при входе —
+   «Общие → Запускать при входе в систему».
+
+На Mac сочетания по умолчанию — с **Ctrl+Option**: тест `Ctrl+Option+1`,
+поиск `Ctrl+Option+Space`, пауза `Ctrl+Option+P` (одиночный Option с цифрой
+на Mac печатает спецсимволы, а клавиши Pause нет).
+
+**Один файл настроек на обе системы.** «Cmd» и «Win», «Option» и «Alt» —
+одно и то же, а `Telegram.exe` и `Telegram.app` — одна программа: можно
+перенести `config.yaml` с Windows на Mac и обратно.
 
 Переезжаете с Espanso? «Общие → Импорт из Espanso» перенесёт заготовки.
 
@@ -125,8 +161,9 @@ snippets:
 ## Разработка
 
 Tauri 2 (Rust) + React 19 + Vite. Перехват клавиатуры, вставка и буфер
-обмена — на WinAPI (`windows-sys`). Как всё устроено и почему —
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+обмена — на WinAPI (`windows-sys`) и на Quartz/AppKit (`objc2`) для macOS;
+всё системное — за фасадом `platform`, остальное общее. Как всё устроено и
+почему — [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```bash
 npm install
@@ -134,6 +171,10 @@ npm run dev          # программа в режиме разработки
 npm run dev:web      # только окно в браузере, на демо-данных
 npm run build        # установщик → D:\dev\cargo-target\release\bundle\nsis\
 ```
+
+Версия для Mac собирается на GitHub (на Windows её не собрать): каждый push —
+тесты и clippy на обеих системах и `.dmg` в файлах сборки, метка `v*` —
+`.dmg` прямо в выпуск. Подробно — `.github/workflows/build.yml`.
 
 Общая папка сборки Rust — `D:\dev\cargo-target` (переменная `CARGO_TARGET_DIR`).
 
@@ -155,11 +196,12 @@ npm run smoke        # сквозной тест в настоящей Windows
 
 ## Ограничения
 
-- Внутри окна самого Отклика сочетания и сокращения не срабатывают — так
-  устроена Windows.
+- На Windows внутри окна самого Отклика сочетания и сокращения не
+  срабатывают — так устроена Windows.
 - Программы с защитой ввода (часть игр с античитом, банк-клиенты) эмулированные
   нажатия игнорируют.
-- Только Windows.
+- На Mac без разрешения «Универсальный доступ» программа ничего не делает.
+- Сквозной тест `npm run smoke` — только для Windows.
 
 ---
 
