@@ -104,16 +104,24 @@ pub fn to_yaml(cfg: &Config) -> Result<String, String> {
     cfg.normalize();
     let body =
         serde_norway::to_string(&cfg).map_err(|e| format!("не удалось записать настройки: {e}"))?;
-    Ok(format!("{HEADER}{}", airy(&body)))
+    // Пустые строки — только для красоты, поэтому проверяем, что смысл не
+    // изменился. Не совпало — пишем как есть, без них: файл важнее вида.
+    let pretty = airy(&body);
+    let same = matches!(
+        (serde_norway::from_str::<Config>(&pretty), serde_norway::from_str::<Config>(&body)),
+        (Ok(a), Ok(b)) if a == b
+    );
+    Ok(format!("{HEADER}{}", if same { pretty } else { body }))
 }
 
 /// Пустые строки между разделами и между заготовками — как у человека.
-/// Строки текста заготовок всегда с отступом, поэтому их это не задевает.
+/// Непустые строки текста заготовок всегда с отступом; пустые строки
+/// внутри текста (абзацы) не трогаем — иначе каждая удвоилась бы.
 fn airy(body: &str) -> String {
     let mut out = String::with_capacity(body.len() + 256);
     let mut prev = "";
     for line in body.lines() {
-        let top_key = !line.starts_with([' ', '-', '#']) && !out.is_empty();
+        let top_key = !line.is_empty() && !line.starts_with([' ', '-', '#']) && !out.is_empty();
         let next_item = line.starts_with("- ") && prev.starts_with([' ', '-']);
         if top_key || next_item {
             out.push('\n');
@@ -167,7 +175,17 @@ pub fn save(path: &Path, cfg: &Config) -> Result<(), String> {
     let mut expect = cfg.clone();
     expect.normalize();
     if back != expect {
-        return Err("внутренняя ошибка: записанный файл читается иначе".into());
+        // Называем, где расхождение, — иначе непонятно, что чинить.
+        let which = expect
+            .snippets
+            .iter()
+            .zip(back.snippets.iter())
+            .find(|(a, b)| a != b)
+            .map(|(a, _)| format!(" (заготовка «{}»)", a.name))
+            .unwrap_or_default();
+        return Err(format!(
+            "не сохранено: файл записался бы с искажением{which}. Сообщите разработчику — ваши правки в окне целы"
+        ));
     }
     backup(path)?;
     let tmp = path.with_extension("yaml.tmp");
@@ -247,5 +265,55 @@ mod tests {
     fn error_mentions_line() {
         let e = parse("snippets:\n  - name: a\n    hotky: Alt+1\n").unwrap_err();
         assert!(e.contains("line 3"), "{e}");
+    }
+
+    /// Тексты, которые раньше искажались при сохранении из окна: пустая
+    /// строка внутри (абзацы) удваивалась, пустая строка в конце —
+    /// добавлялась. Каждый должен записаться и прочитаться один в один.
+    #[test]
+    fn tricky_texts_survive_save() {
+        let texts = [
+            "a
+
+",
+            "a
+",
+            "a
+
+
+",
+            "  ведущие пробелы",
+            "строка: с двоеточием",
+            "	таб",
+            "a  
+b",
+            "#решётка",
+            "- тире в начале",
+            "'кавычки'",
+            "конец пробелом ",
+            "
+",
+            "",
+            "Добрый день,
+
+Спасибо за письмо.
+",
+            "emoji 🙏
+",
+        ];
+        for t in texts {
+            let mut c = Config::default();
+            for n in 0..2 {
+                c.snippets.push(Snippet {
+                    name: format!("s{n}"),
+                    hotkey: Some("Ctrl+Alt+1".into()),
+                    text: Some(t.to_string()),
+                    ..Default::default()
+                });
+            }
+            let back = parse(&to_yaml(&c).unwrap()).unwrap();
+            assert_eq!(back.snippets[0].text.as_deref(), Some(t), "текст {t:?}");
+            assert_eq!(back.snippets[1].text.as_deref(), Some(t), "текст {t:?}");
+        }
     }
 }
