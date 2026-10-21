@@ -11,7 +11,14 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest">Скачать</a> ·
+  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.1.0/Otklik_0.1.0_x64-setup.exe"><img alt="Скачать для Windows" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
+  &nbsp;
+  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+</p>
+
+<p align="center"><sub>macOS — первая версия, проверяется · <a href="#macos">как установить на Mac</a> · <a href="../../releases">все выпуски</a></sub></p>
+
+<p align="center">
   <a href="docs/ARCHITECTURE.md">Как устроено</a> ·
   <a href="#разработка">Разработка</a>
 </p>
@@ -74,7 +81,7 @@
 
 ### Windows
 
-1. Скачайте `Otklik_…_x64-setup.exe` со страницы [выпусков](../../releases/latest)
+1. Скачайте [установщик для Windows](https://github.com/alan367281-lang/otklik/releases/download/v0.1.0/Otklik_0.1.0_x64-setup.exe)
    и запустите. Ставится для текущего пользователя, права администратора не нужны.
 2. В трее появится значок **О**. Щелчок — окно настроек.
 3. Запуск вместе с Windows — «Общие → Запускать при входе в систему»
@@ -85,7 +92,7 @@
 
 ### macOS
 
-1. Скачайте `Otklik_…_universal.dmg` со страницы [выпусков](../../releases/latest)
+1. Скачайте [Otklik_macOS.dmg](https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg)
    (подходит и для Apple Silicon, и для Intel), откройте и перетащите
    **Отклик** в «Программы».
 2. Приложение не подписано в Apple, поэтому при первом запуске macOS скажет,
