@@ -11,6 +11,11 @@ export interface AdminStatus {
   exe: string
 }
 
+export interface PlatformInfo {
+  os: 'windows' | 'macos'
+  trusted: boolean
+}
+
 export interface Imported {
   snippets: Snippet[]
   skipped: string[]
@@ -167,6 +172,8 @@ export const api = {
     ),
   searchRun: (index: number, name: string): Promise<void> => call('search_run', { index, name }),
   searchHide: (restore: boolean): Promise<void> => call('search_hide', { restore }),
+  platformInfo: (): Promise<PlatformInfo> => call('platform_info', undefined, { os: 'windows', trusted: true }),
+  openPermissions: (): Promise<void> => call('open_permissions'),
   adminStatus: (): Promise<AdminStatus> => call('admin_status', undefined, { elevated: false, task: false, exe: '' }),
   adminSetTask: (enabled: boolean): Promise<void> => call('admin_set_task', { enabled }),
   adminRestart: (): Promise<void> => call('admin_restart'),

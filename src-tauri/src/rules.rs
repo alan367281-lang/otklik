@@ -25,23 +25,33 @@ pub struct AppMatch {
     title_contains: Option<String>,
 }
 
+/// Имя программы без системного хвоста: «Telegram.exe» и «Telegram.app»
+/// — одно и то же «telegram». Так одно правило работает на обеих системах.
+fn norm(name: &str) -> String {
+    let l = name.trim().to_lowercase();
+    l.strip_suffix(".exe")
+        .or_else(|| l.strip_suffix(".app"))
+        .unwrap_or(&l)
+        .to_string()
+}
+
 impl AppMatch {
     fn from_def(def: &AppDef) -> AppMatch {
         AppMatch {
-            exes: def.exe.to_vec().iter().map(|e| e.to_lowercase()).collect(),
+            exes: def.exe.to_vec().iter().map(|e| norm(e)).collect(),
             title_contains: def.title_contains.as_ref().map(|t| t.to_lowercase()),
         }
     }
 
     fn exe(name: &str) -> AppMatch {
         AppMatch {
-            exes: vec![name.to_lowercase()],
+            exes: vec![norm(name)],
             title_contains: None,
         }
     }
 
     pub fn matches(&self, app: &ActiveApp) -> bool {
-        let exe_ok = self.exes.is_empty() || self.exes.contains(&app.exe);
+        let exe_ok = self.exes.is_empty() || self.exes.contains(&norm(&app.exe));
         let title_ok = self
             .title_contains
             .as_ref()
@@ -117,8 +127,15 @@ pub struct Compiled {
     pub warnings: Vec<String>,
 }
 
+/// Чем вставлять из буфера: Ctrl+V, на Mac — Cmd+V.
+#[cfg(not(target_os = "macos"))]
 pub const DEFAULT_PASTE: Chord = Chord {
     mods: crate::chord::CTRL,
+    vk: 0x56,
+};
+#[cfg(target_os = "macos")]
+pub const DEFAULT_PASTE: Chord = Chord {
+    mods: crate::chord::WIN,
     vk: 0x56,
 };
 
@@ -234,11 +251,11 @@ fn resolve_apps(
         .map(|name| {
             if let Some(def) = apps.get(name) {
                 Ok(AppMatch::from_def(def))
-            } else if name.to_lowercase().ends_with(".exe") {
+            } else if [".exe", ".app"].iter().any(|s| name.to_lowercase().ends_with(s)) {
                 Ok(AppMatch::exe(name))
             } else {
                 Err(format!(
-                    "не знаю приложение «{name}»: добавьте его в apps или напишите имя exe-файла"
+                    "не знаю приложение «{name}»: добавьте его в apps или напишите имя программы (Telegram.exe, Telegram.app)"
                 ))
             }
         })
@@ -879,5 +896,22 @@ snippets:
         assert!(c.rules[2].as_ref().unwrap().applies_to(&app("chrome.exe")));
         assert_eq!(c.views[2].group.as_deref(), Some("Почта"));
         assert_eq!(c.views[2].detail, "z");
+    }
+
+    #[test]
+    fn one_rule_for_both_systems() {
+        let c = compile(
+            &parse(
+                r#"
+snippets:
+  - { name: тг, hotkey: Ctrl+Alt+1, only_in: Telegram.exe, text: x }
+"#,
+            )
+            .unwrap(),
+        );
+        let hk = Chord::parse("Ctrl+Alt+1").unwrap();
+        assert!(c.pick(&hk, &app("telegram.exe")).is_some());
+        assert!(c.pick(&hk, &app("telegram.app")).is_some());
+        assert!(c.pick(&hk, &app("chrome.app")).is_none());
     }
 }

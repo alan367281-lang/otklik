@@ -8,16 +8,14 @@
 use crate::commands::JobTx;
 use crate::engine::Shared;
 use crate::executor::Job;
+use crate::platform::input;
 use crate::rules::ActiveApp;
-use crate::win::input;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::{
     App, AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl,
     WebviewWindowBuilder,
 };
-use windows_sys::Win32::Foundation::POINT;
-use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
 
 pub const LABEL: &str = "search";
 const WIDTH: f64 = 620.0;
@@ -42,8 +40,10 @@ pub fn show(app: &AppHandle, target: ActiveApp) {
     let Some(w) = app.get_webview_window(LABEL) else {
         return;
     };
-    let mut pt = POINT { x: 0, y: 0 };
-    unsafe { GetCursorPos(&mut pt) };
+    let pt = w
+        .cursor_position()
+        .map(|p| PhysicalPosition::new(p.x as i32, p.y as i32))
+        .unwrap_or(PhysicalPosition::new(0, 0));
     let size = w
         .outer_size()
         .unwrap_or(PhysicalSize::new(WIDTH as u32, HEIGHT as u32));

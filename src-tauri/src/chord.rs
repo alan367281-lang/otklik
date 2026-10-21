@@ -17,6 +17,18 @@ pub struct Chord {
 }
 
 pub const VK_PAUSE: u16 = 0x13;
+
+/// Как называть Alt и Win там, где живёт программа. В файле настроек
+/// понимаются оба варианта: «Option» и «Alt», «Cmd» и «Win» — одно и то же,
+/// так один config.yaml годится и для Windows, и для Mac.
+#[cfg(target_os = "macos")]
+pub const ALT_NAME: &str = "Option";
+#[cfg(target_os = "macos")]
+pub const WIN_NAME: &str = "Cmd";
+#[cfg(not(target_os = "macos"))]
+pub const ALT_NAME: &str = "Alt";
+#[cfg(not(target_os = "macos"))]
+pub const WIN_NAME: &str = "Win";
 /// Ctrl+Pause Windows присылает не как Pause, а как Break (VK_CANCEL).
 /// Хук переводит его обратно, иначе «Ctrl+Alt+Pause» никогда не совпадёт.
 pub const VK_CANCEL: u16 = 0x03;
@@ -107,9 +119,9 @@ pub fn key_name(vk: u16) -> String {
 fn modifier(name: &str) -> Option<u8> {
     match name.trim().to_ascii_lowercase().as_str() {
         "ctrl" | "control" => Some(CTRL),
-        "alt" => Some(ALT),
+        "alt" | "option" | "opt" => Some(ALT),
         "shift" => Some(SHIFT),
-        "win" | "meta" | "super" => Some(WIN),
+        "win" | "meta" | "super" | "cmd" | "command" => Some(WIN),
         _ => None,
     }
 }
@@ -142,7 +154,11 @@ impl Chord {
         for p in mod_parts {
             match modifier(p) {
                 Some(m) => mods |= m,
-                None => return Err(format!("«{p}» — не модификатор (Ctrl, Alt, Shift, Win)")),
+                None => {
+                    return Err(format!(
+                        "«{p}» — не модификатор (Ctrl, {ALT_NAME}, Shift, {WIN_NAME})"
+                    ))
+                }
             }
         }
         if modifier(key).is_some() {
@@ -156,13 +172,28 @@ impl Chord {
     pub fn check(&self) -> Result<(), String> {
         let is_fkey = (0x70..=0x87).contains(&self.vk) || self.vk == VK_PAUSE;
         if self.mods == 0 && !is_fkey {
-            return Err("нужен хотя бы один модификатор (Ctrl, Alt или Win)".into());
+            return Err(format!(
+                "нужен хотя бы один модификатор (Ctrl, {ALT_NAME} или {WIN_NAME})"
+            ));
         }
         // Shift+буква/цифра — это просто заглавная буква или символ:
         // занять такое сочетание значит сломать обычный набор текста.
         if self.mods == SHIFT && !is_fkey {
             return Err("одного Shift мало — так печатаются заглавные буквы".into());
         }
+        #[cfg(target_os = "macos")]
+        const RESERVED: &[(u8, u16, &str)] = &[
+            (WIN, 0x51, "Cmd+Q закрывает программы"),
+            (WIN, 0x09, "Cmd+Tab переключает программы"),
+            (WIN, 0x20, "Cmd+Space открывает Spotlight"),
+            (CTRL | WIN, 0x51, "Ctrl+Cmd+Q блокирует экран"),
+            (
+                WIN | ALT,
+                0x1B,
+                "Cmd+Option+Esc — принудительное завершение",
+            ),
+        ];
+        #[cfg(not(target_os = "macos"))]
         const RESERVED: &[(u8, u16, &str)] = &[
             (WIN, 0x4C, "Win+L блокирует компьютер"),
             (CTRL | ALT, 0x2E, "Ctrl+Alt+Del занят системой"),
@@ -191,7 +222,12 @@ impl Chord {
 
 impl fmt::Display for Chord {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (m, name) in [(CTRL, "Ctrl"), (ALT, "Alt"), (SHIFT, "Shift"), (WIN, "Win")] {
+        for (m, name) in [
+            (CTRL, "Ctrl"),
+            (ALT, ALT_NAME),
+            (SHIFT, "Shift"),
+            (WIN, WIN_NAME),
+        ] {
             if self.has(m) {
                 write!(f, "{name}+")?;
             }
@@ -207,14 +243,14 @@ mod tests {
     #[test]
     fn parses_and_prints_back() {
         for s in [
-            "Alt+1",
-            "Ctrl+Alt+2",
-            "Ctrl+Alt+Pause",
-            "Ctrl+Shift+Space",
-            "Win+F13",
-            "F9",
+            format!("{ALT_NAME}+1"),
+            format!("Ctrl+{ALT_NAME}+2"),
+            format!("Ctrl+{ALT_NAME}+Pause"),
+            "Ctrl+Shift+Space".to_string(),
+            format!("{WIN_NAME}+F13"),
+            "F9".to_string(),
         ] {
-            assert_eq!(Chord::parse(s).unwrap().to_string(), s);
+            assert_eq!(Chord::parse(&s).unwrap().to_string(), s);
         }
     }
 
@@ -234,6 +270,13 @@ mod tests {
         );
     }
 
+    #[test]
+    fn mac_and_windows_names_are_the_same() {
+        assert_eq!(Chord::parse("Cmd+Option+K"), Chord::parse("Win+Alt+K"));
+        assert_eq!(Chord::parse("command+opt+k").unwrap().mods, WIN | ALT);
+    }
+
+    #[cfg(windows)]
     #[test]
     fn rejects_bad_chords() {
         for s in [

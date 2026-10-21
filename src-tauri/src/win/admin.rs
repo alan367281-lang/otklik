@@ -6,7 +6,7 @@
 //! Обычный автозапуск (реестр Run) права поднимать не умеет, поэтому для
 //! запуска от администратора — задача Планировщика с наивысшими правами.
 
-use crate::win::wide;
+use super::wide;
 use serde::Serialize;
 use std::os::windows::process::CommandExt;
 use std::process::Command;
@@ -145,6 +145,26 @@ pub fn admin_restart(app: tauri::AppHandle) -> Result<(), String> {
     app.exit(0);
     Ok(())
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformInfo {
+    os: &'static str,
+    /// Есть ли нужные системе разрешения (на Windows — всегда да).
+    trusted: bool,
+}
+
+#[tauri::command]
+pub fn platform_info() -> PlatformInfo {
+    PlatformInfo {
+        os: "windows",
+        trusted: true,
+    }
+}
+
+/// На Windows особых разрешений нет — открывать нечего.
+#[tauri::command]
+pub fn open_permissions() {}
 
 #[cfg(test)]
 mod tests {

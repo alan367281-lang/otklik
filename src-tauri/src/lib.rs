@@ -8,14 +8,17 @@ pub mod config;
 pub mod macros;
 pub mod rules;
 
-mod admin;
 mod commands;
 mod engine;
 mod espanso;
 mod executor;
 mod hook;
+#[cfg(target_os = "macos")]
+mod mac;
+mod platform;
 mod search;
 mod tray;
+#[cfg(windows)]
 mod win;
 
 use std::sync::{mpsc, Arc};
@@ -83,9 +86,11 @@ pub fn run() {
             search::search_list,
             search::search_run,
             search::search_hide,
-            admin::admin_status,
-            admin::admin_set_task,
-            admin::admin_restart,
+            platform::admin::admin_status,
+            platform::admin::admin_set_task,
+            platform::admin::admin_restart,
+            platform::admin::platform_info,
+            platform::admin::open_permissions,
             espanso::import_espanso,
             commands::test_snippet,
             commands::get_autostart,
@@ -112,6 +117,14 @@ pub fn run() {
             };
             let shared = Arc::new(engine::Shared::new(path));
             app.manage(shared.clone());
+            // На Mac — значок в строке меню без значка в Доке, и сразу
+            // просьба о разрешении «Универсальный доступ»: без него
+            // перехват клавиш молчит.
+            #[cfg(target_os = "macos")]
+            {
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                mac::request_accessibility();
+            }
             tray::build(app)?;
             sync_autostart(app.handle());
             search::create(app)?;

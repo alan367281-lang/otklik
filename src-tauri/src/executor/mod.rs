@@ -7,14 +7,14 @@ use crate::chord::Chord;
 use crate::config::Method;
 use crate::engine;
 use crate::macros::{self, KeyOp};
+use crate::platform::clipboard::Owner;
+use crate::platform::{clipboard, foreground, input, modifiers, shell};
 use crate::rules::{Action, ActiveApp, Compiled, Rule};
-use crate::win::{clipboard, foreground, input, modifiers, shell};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 use tauri::AppHandle;
-use windows_sys::Win32::Foundation::HWND;
 
 pub enum Job {
     Run {
@@ -82,14 +82,14 @@ pub fn spawn(app: AppHandle, rx: Receiver<Job>) {
 
 /// Всё, что нужно действию во время исполнения.
 struct Ctx<'a> {
-    owner: HWND,
+    owner: Owner,
     method: Method,
     compiled: &'a Compiled,
     target: &'a ActiveApp,
 }
 
 fn run(
-    owner: HWND,
+    owner: Owner,
     rule: &Rule,
     compiled: &Compiled,
     target: &ActiveApp,

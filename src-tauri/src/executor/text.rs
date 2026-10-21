@@ -1,11 +1,11 @@
 //! Вставка текста: печатью или через буфер обмена.
 
 use crate::config::Method;
+use crate::platform::clipboard::Owner;
+use crate::platform::{clipboard, input};
 use crate::rules::{ActiveApp, Compiled};
-use crate::win::{clipboard, input};
 use std::thread::sleep;
 use std::time::Duration;
-use windows_sys::Win32::Foundation::HWND;
 
 const PRE_PASTE_MS: u64 = 100;
 
@@ -18,7 +18,7 @@ pub fn use_paste(text: &str, method: Method, threshold: usize) -> bool {
 }
 
 pub fn insert(
-    owner: HWND,
+    owner: Owner,
     text: &str,
     method: Method,
     compiled: &Compiled,

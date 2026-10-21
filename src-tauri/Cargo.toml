@@ -31,7 +31,7 @@ chrono = "0.4"
 # Сырые привязки WinAPI. Именно windows-sys, а не windows: второй на этой
 # машине съедает память при компиляции, а обёртки над COM
 # нам не нужны — только хук, SendInput, буфер обмена и имя процесса.
-[dependencies.windows-sys]
+[target.'cfg(windows)'.dependencies.windows-sys]
 version = "0.61"
 features = [
   "Win32_Foundation",
@@ -45,6 +45,13 @@ features = [
   "Win32_System_Environment",
   "Win32_UI_Shell",
 ]
+
+# macOS: AppKit (буфер обмена, приложения) через objc2; Quartz и
+# «Универсальный доступ» — свои привязки в src/mac/ffi.rs.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
 
 [profile.dev]
 debug = 1

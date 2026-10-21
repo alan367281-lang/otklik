@@ -3,8 +3,8 @@
 use crate::config::{self, Config, Snippet};
 use crate::engine::{self, LogEntry, Shared};
 use crate::executor::Job;
+use crate::platform::{apps, clipboard, foreground};
 use crate::rules::{compile, Rule, RuleView};
-use crate::win::{foreground, windows};
 use serde::Serialize;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -134,8 +134,8 @@ pub fn check_config(config: Config) -> Check {
 }
 
 #[tauri::command]
-pub fn list_apps() -> Vec<windows::RunningApp> {
-    windows::running_apps()
+pub fn list_apps() -> Vec<apps::RunningApp> {
+    apps::running_apps()
 }
 
 /// Предпросмотр текста с подстановками: что вставится прямо сейчас.
@@ -144,7 +144,7 @@ pub fn list_apps() -> Vec<windows::RunningApp> {
 pub fn preview_text(text: String) -> Result<String, String> {
     let pieces = crate::macros::parse_text(&text)?;
     let now = chrono::Local::now().naive_local();
-    let mut clip = || crate::win::clipboard::get_text(std::ptr::null_mut());
+    let mut clip = || clipboard::get_text(clipboard::no_owner());
     let (out, back) = crate::macros::expand_text(&pieces, now, &mut clip);
     if back == 0 {
         return Ok(out);

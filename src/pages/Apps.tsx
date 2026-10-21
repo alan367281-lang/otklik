@@ -1,6 +1,7 @@
 import { useState, type JSX } from 'react'
 import { list, type AppDef, type Config } from '../lib/config'
 import { AppPicker } from '../components/AppPicker'
+import { isMac } from '../lib/platform'
 
 interface Props {
   config: Config
@@ -13,12 +14,14 @@ export function AppsPage({ config, update }: Props): JSX.Element {
   const names = Object.keys(config.apps)
 
   const addFromExe = (exe: string): void => {
-    let name = exe.toLowerCase().replace(/\.exe$/, '').replace(/[^a-zа-я0-9_-]+/gi, '')
+    let name = exe.toLowerCase().replace(/\.(exe|app)$/, '').replace(/[^a-zа-я0-9_-]+/gi, '')
     if (!name) name = 'app'
     let n = name
     for (let i = 2; config.apps[n]; i++) n = `${name}${i}`
+    // Имя без хвоста дополняем по системе: Telegram → Telegram.exe / Telegram.app.
+    const full = /\.(exe|app)$/i.test(exe) ? exe : `${exe}${isMac ? '.app' : '.exe'}`
     update((c) => {
-      c.apps[n] = { exe: exe.toLowerCase().endsWith('.exe') ? exe : `${exe}.exe`, title_contains: null, paste_keys: null }
+      c.apps[n] = { exe: full, title_contains: null, paste_keys: null }
     })
   }
 
@@ -86,19 +89,19 @@ function AppCard(p: { name: string; def: AppDef; config: Config; update: Props['
         <button className="danger" onClick={remove} title={used ? 'Правила с этим именем перестанут работать' : undefined}>Удалить</button>
       </div>
       <div className="app-grid">
-        <label>Программы (exe через запятую)</label>
+        <label>Программы через запятую</label>
         <input
           value={list(def.exe).join(', ')}
           onChange={(e) => {
             const v = e.target.value.split(',').map((x) => x.trim())
             set({ exe: v.filter(Boolean).length ? v : null })
           }}
-          placeholder="Telegram.exe"
+          placeholder={isMac ? 'Telegram.app' : 'Telegram.exe'}
         />
         <label>Заголовок окна содержит</label>
         <input value={def.title_contains ?? ''} onChange={(e) => set({ title_contains: e.target.value || null })} placeholder="необязательно, например Gmail" />
         <label>Чем вставлять</label>
-        <input value={def.paste_keys ?? ''} onChange={(e) => set({ paste_keys: e.target.value || null })} placeholder="Ctrl+V (как обычно); терминалам — Ctrl+Shift+V" />
+        <input value={def.paste_keys ?? ''} onChange={(e) => set({ paste_keys: e.target.value || null })} placeholder={isMac ? 'Cmd+V (как обычно)' : 'Ctrl+V (как обычно); терминалам — Ctrl+Shift+V'} />
       </div>
     </div>
   )

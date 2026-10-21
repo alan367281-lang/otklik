@@ -29,6 +29,7 @@ pub const HEADER: &str = r#"# Отклик — настройки.
 
 /// Стартовый файл. Пишем текстом, а не через serde, чтобы оставить
 /// закомментированный пример правила.
+#[cfg(not(target_os = "macos"))]
 pub const DEFAULT_BODY: &str = r#"version: 1
 
 settings:
@@ -59,6 +60,40 @@ snippets:
   #   hotkey: Alt+1
   #   only_in: notepad
   #   text: "Это Блокнот!"
+"#;
+
+/// Стартовый файл для Mac. Сочетания с Ctrl+Option: Option+цифра на Mac
+/// печатает спецсимволы («¡», «™»), а клавиши Pause нет.
+#[cfg(target_os = "macos")]
+pub const DEFAULT_BODY: &str = r#"version: 1
+
+settings:
+  pause_hotkey: Ctrl+Option+P
+  search_hotkey: Ctrl+Option+Space
+  paste_threshold: 100
+  restore_clipboard_ms: 300
+
+apps:
+  notes: { exe: Notes.app }
+
+snippets:
+  - name: Тест
+    hotkey: Ctrl+Option+1
+    text: "Это тестовый текст от Отклика."
+
+  - name: Тест длинный (через буфер)
+    hotkey: Ctrl+Option+2
+    text: |
+      Первая строка длинного тестового текста.
+      Вторая строка — проверяем многострочную вставку через буфер обмена,
+      кириллицу и то, что старый буфер вернулся на место.
+
+  # Пример правила только для одного приложения: в Заметках Ctrl+Option+1
+  # вставит другой текст, а везде остальное — «Тест» выше.
+  # - name: Тест для Заметок
+  #   hotkey: Ctrl+Option+1
+  #   only_in: notes
+  #   text: "Это Заметки!"
 "#;
 
 /// Прочитать и разобрать файл. Ошибка — готовый текст для человека
@@ -184,7 +219,13 @@ mod tests {
     fn default_config_parses() {
         let c = parse(&default_config()).unwrap();
         assert_eq!(c.snippets.len(), 2);
-        assert_eq!(c.snippets[0].hotkey.as_deref(), Some("Alt+1"));
+        // Стартовые правила рабочие на той системе, где собрано.
+        let compiled = crate::rules::compile(&c);
+        assert!(
+            compiled.views.iter().all(|v| v.active),
+            "{:?}",
+            compiled.views
+        );
         assert!(c.snippets[1].text.as_deref().unwrap().contains('\n'));
         assert_eq!(c.apps["terminal"].exe.to_vec(), ["WindowsTerminal.exe"]);
     }

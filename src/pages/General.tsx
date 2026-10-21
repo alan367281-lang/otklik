@@ -3,6 +3,8 @@ import { api, errText, type Status } from '../lib/api'
 import type { Config } from '../lib/config'
 import { HotkeyInput } from '../components/HotkeyInput'
 import { AdminCard } from '../components/AdminCard'
+import { PermissionsCard } from '../components/PermissionsCard'
+import { isMac } from '../lib/platform'
 import { EspansoImport } from '../components/EspansoImport'
 
 interface Props {
@@ -89,7 +91,7 @@ export function GeneralPage({ config, status, update }: Props): JSX.Element {
         </div>
       </section>
 
-      <AdminCard />
+      {isMac ? <PermissionsCard /> : <AdminCard />}
 
       <EspansoImport config={config} update={update} />
 

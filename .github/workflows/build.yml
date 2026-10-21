@@ -1,0 +1,98 @@
+# Сборка и проверки на GitHub: на Mac (там же собирается .dmg — на
+# Windows программу для Mac не собрать) и на Windows (тесты и clippy,
+# установщик для Windows собирается локально).
+name: Сборка
+
+on:
+  push:
+    branches: [main, macos]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: macOS — тесты и .dmg
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # generate_context! ждёт собранное окно ещё при компиляции ядра.
+      - run: npm run build:web
+
+      - name: Тесты ядра
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Сборка .dmg (Apple Silicon + Intel)
+        run: npx tauri build --target universal-apple-darwin --bundles dmg
+
+      # Кириллица в именах файлов на GitHub портится — выкладываем латиницей.
+      - name: Имя установщика
+        id: dmg
+        run: |
+          src=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -1)
+          ver=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          dst="Otklik_${ver}_universal.dmg"
+          cp "$src" "$dst"
+          echo "file=$dst" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: otklik-macos
+          path: ${{ steps.dmg.outputs.file }}
+
+      - name: В выпуск (по метке версии)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" "${{ steps.dmg.outputs.file }}" --clobber
+
+  windows:
+    name: Windows — тесты
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+      - run: npm run build:web
+
+      - name: Тесты ядра
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

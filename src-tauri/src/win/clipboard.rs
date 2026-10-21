@@ -21,6 +21,14 @@ const CF_UNICODETEXT: u32 = 13;
 /// Больше не сохраняем: огромная копия из Excel иначе съест память и время.
 const SAVE_LIMIT: usize = 64 * 1024 * 1024;
 
+/// Владелец буфера обмена: на Windows — невидимое окно потока исполнителя.
+pub type Owner = HWND;
+
+/// «Без владельца» — для разового чтения буфера вне исполнителя.
+pub fn no_owner() -> Owner {
+    null_mut()
+}
+
 /// Невидимое окно-владелец. С OpenClipboard(NULL) по документации
 /// SetClipboardData может не сработать — не рискуем.
 pub fn owner_window() -> HWND {

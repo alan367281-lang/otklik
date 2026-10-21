@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { api } from '../lib/api'
+import { ALT_NAME, WIN_NAME } from '../lib/platform'
 import { Keys } from './Keys'
 
 interface Props {
@@ -34,9 +35,9 @@ const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'])
 function modsOf(e: KeyboardEvent): string[] {
   const m: string[] = []
   if (e.ctrlKey) m.push('Ctrl')
-  if (e.altKey) m.push('Alt')
+  if (e.altKey) m.push(ALT_NAME)
   if (e.shiftKey) m.push('Shift')
-  if (e.metaKey) m.push('Win')
+  if (e.metaKey) m.push(WIN_NAME)
   return m
 }
 

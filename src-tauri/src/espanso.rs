@@ -1,4 +1,5 @@
-//! Импорт заготовок из Espanso (`%APPDATA%\espanso\match\*.yml`).
+//! Импорт заготовок из Espanso (`%APPDATA%\espanso\match\*.yml`, на Mac —
+//! `~/Library/Application Support/espanso/match`).
 //! Переносим то, что умеем сами: текст, сокращения, «целым словом»,
 //! курсор `$|$`, переменные буфера и даты. Формы, регулярки, скрипты,
 //! картинки — пропускаем и говорим, что именно пропущено.
@@ -166,8 +167,13 @@ fn yml_files(dir: &Path, out: &mut Vec<PathBuf>) {
 
 #[tauri::command]
 pub fn import_espanso() -> Result<Imported, String> {
-    let appdata = std::env::var("APPDATA").map_err(|_| "не найдена папка APPDATA".to_string())?;
-    let dir = Path::new(&appdata).join("espanso").join("match");
+    #[cfg(windows)]
+    let base = std::env::var("APPDATA").map_err(|_| "не найдена папка APPDATA".to_string())?;
+    #[cfg(not(windows))]
+    let base = std::env::var("HOME")
+        .map(|h| format!("{h}/Library/Application Support"))
+        .map_err(|_| "не найдена домашняя папка".to_string())?;
+    let dir = Path::new(&base).join("espanso").join("match");
     if !dir.is_dir() {
         return Err(format!("Espanso не найден: нет папки {}", dir.display()));
     }
