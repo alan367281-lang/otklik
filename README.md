@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/alan367281-lang/otklik/releases/latest/download/Otklik_Windows_setup.exe"><img alt="Скачать для Windows" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white"></a>
   &nbsp;
-  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
+  <a href="https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.2/Otklik_macOS.dmg"><img alt="Скачать для macOS" src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F-macOS-111111?style=for-the-badge&logo=apple&logoColor=white"></a>
 </p>
 
 <p align="center"><sub>macOS — первая версия, проверяется · <a href="#macos">как установить на Mac</a> · <a href="../../releases">все выпуски</a></sub></p>
@@ -92,7 +92,7 @@
 
 ### macOS
 
-1. Скачайте [Otklik_macOS.dmg](https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.1/Otklik_macOS.dmg)
+1. Скачайте [Otklik_macOS.dmg](https://github.com/alan367281-lang/otklik/releases/download/v0.2.0-beta.2/Otklik_macOS.dmg)
    (подходит и для Apple Silicon, и для Intel), откройте и перетащите
    **Отклик** в «Программы».
 2. Приложение не подписано в Apple, поэтому при первом запуске macOS скажет,
