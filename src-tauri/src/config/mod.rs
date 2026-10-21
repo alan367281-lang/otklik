@@ -173,10 +173,19 @@ fn backup(path: &Path) -> Result<(), String> {
     }
     let dir = backups_dir(path);
     fs::create_dir_all(&dir).map_err(|e| format!("не создать папку копий: {e}"))?;
-    let name = chrono::Local::now()
-        .format("config-%Y%m%d-%H%M%S%.3f.yaml")
+    let stamp = chrono::Local::now()
+        .format("config-%Y%m%d-%H%M%S%.3f")
         .to_string();
-    fs::copy(path, dir.join(name)).map_err(|e| format!("не сделать резервную копию: {e}"))?;
+    // Два сохранения в одну миллисекунду (на быстром Mac — запросто) дали бы
+    // одно имя, и вторая копия затёрла бы первую. Занято — добавляем номер.
+    let mut target = dir.join(format!("{stamp}.yaml"));
+    for n in 1.. {
+        if !target.exists() {
+            break;
+        }
+        target = dir.join(format!("{stamp}-{n}.yaml"));
+    }
+    fs::copy(path, target).map_err(|e| format!("не сделать резервную копию: {e}"))?;
     let mut old: Vec<PathBuf> = fs::read_dir(&dir)
         .map_err(|e| e.to_string())?
         .filter_map(|e| e.ok().map(|e| e.path()))

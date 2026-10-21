@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 //! Перехват на macOS: CGEventTap. Здесь только перевод событий Quartz в
 //! общий вид; решения — в `crate::hook`.
 //!
