@@ -266,7 +266,7 @@ mod tests {
     fn modifier_order_is_normalised() {
         assert_eq!(
             Chord::parse("Alt+Ctrl+X").unwrap().to_string(),
-            "Ctrl+Alt+X"
+            format!("Ctrl+{ALT_NAME}+X")
         );
     }
 

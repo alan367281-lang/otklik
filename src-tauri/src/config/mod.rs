@@ -227,7 +227,10 @@ mod tests {
             compiled.views
         );
         assert!(c.snippets[1].text.as_deref().unwrap().contains('\n'));
+        #[cfg(not(target_os = "macos"))]
         assert_eq!(c.apps["terminal"].exe.to_vec(), ["WindowsTerminal.exe"]);
+        #[cfg(target_os = "macos")]
+        assert_eq!(c.apps["notes"].exe.to_vec(), ["Notes.app"]);
     }
 
     #[test]
