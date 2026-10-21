@@ -53,8 +53,8 @@ jobs:
         id: dmg
         run: |
           src=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -1)
-          ver=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          dst="Otklik_${ver}_universal.dmg"
+          # Постоянное имя: кнопка «Скачать для macOS» в README ведёт прямо на него.
+          dst="Otklik_macOS.dmg"
           cp "$src" "$dst"
           echo "file=$dst" >> "$GITHUB_OUTPUT"
 
